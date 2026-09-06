@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم والتحكيم | أكاديمية تيت</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Changa:wght@400;600;700;800;900&family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --red-neon: #ff1e27;
+            --red-deep: #b91c1c;
+            --blue-neon: #38bdf8;
+            --green-neon: #10b981;
+            --gold-neon: #f59e0b;
+            --bg-dark: #070b14;
+            --card-bg: #0d1527;
+            --border-glow: rgba(255, 30, 39, 0.25);
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Tajawal', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image:
+                radial-gradient(circle at 10% 20%, rgba(255, 30, 39, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(56, 189, 248, 0.06) 0%, transparent 40%),
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 30px 30px, 30px 30px;
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 20px 25px 40px;
+            direction: rtl;
+        }
+
+        /* Header */
+        .judge-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 24px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-glow);
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        .brand-zone {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .judge-title {
+            font-family: 'Changa', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: var(--red-neon);
+            letter-spacing: 1px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--green-neon);
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--green-neon);
+            box-shadow: 0 0 10px var(--green-neon);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse { 0%,100%{opacity:1; transform:scale(1)} 50%{opacity:0.4; transform:scale(1.3)} }
+
+        /* Container */
+        .judge-container {
+            max-width: 960px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* Scores Bar */
+        .scoreboard-row {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .team-score-card {
+            background: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        .team-score-card.active-team {
+            border-color: var(--red-neon);
+            box-shadow: 0 0 20px rgba(255, 30, 39, 0.2);
+            background: rgba(255, 30, 39, 0.05);
+        }
+
+        .team-meta .t-label {
+            font-size: 0.8rem;
+            color: var(--text-sub);
+            text-transform: uppercase;
+        }
+        .team-meta .t-name {
+            font-family: 'Changa', sans-serif;
+            font-size: 1.15rem;
+            font-weight: 700;
+        }
+
+        .score-val-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .score-num {
+            font-family: 'Changa', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: var(--red-neon);
+            min-width: 45px;
+            text-align: center;
+        }
+        .mini-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: #fff;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .mini-btn:hover { background: var(--red-neon); border-color: var(--red-neon); }
+
+        .center-round-box {
+            background: var(--card-bg);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 12px 18px;
+            text-align: center;
+        }
+        .q-progress {
+            font-family: 'Changa', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--blue-neon);
+        }
+        .q-cat {
+            font-size: 0.8rem;
+            color: var(--gold-neon);
+            font-weight: 600;
+        }
+
+        /* Question & Answer Boxes */
+        .info-panel {
+            background: var(--card-bg);
+            border: 1px solid var(--border-glow);
+            border-radius: 12px;
+            padding: 20px 24px;
+            position: relative;
+        }
+
+        .panel-tag {
+            font-family: 'Changa', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--red-neon);
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .q-text-display {
+            font-size: 1.25rem;
+            font-weight: 600;
+            line-height: 1.7;
+            color: #f1f5f9;
+        }
+
+        .answer-panel {
+            background: rgba(16, 185, 129, 0.08);
+            border: 1.5px solid rgba(16, 185, 129, 0.35);
+            border-radius: 12px;
+            padding: 16px 22px;
+        }
+        .answer-panel .panel-tag { color: var(--green-neon); }
+        .ans-text-display {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: #34d399;
+        }
+
+        /* Judge Decision Controls */
+        .decision-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .judge-action-btn {
+            font-family: 'Changa', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 800;
+            padding: 18px 25px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-correct {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
+        }
+        .btn-correct:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(16, 185, 129, 0.6);
+        }
+
+        .btn-wrong {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3);
+        }
+        .btn-wrong:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(239, 68, 68, 0.6);
+        }
+
+        /* Hint & Options Controls */
+        .hint-control-box {
+            background: var(--card-bg);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 12px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+        }
+
+        .hint-status-text {
+            font-size: 0.95rem;
+            color: var(--gold-neon);
+            font-weight: 600;
+        }
+
+        .btn-hint {
+            font-family: 'Changa', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 800;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: #070b14;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .btn-hint:hover { box-shadow: 0 0 25px rgba(245, 158, 11, 0.5); transform: translateY(-2px); }
+        .btn-hint:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        .btn-hint-hide {
+            font-family: 'Changa', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 800;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .btn-hint-hide:hover { box-shadow: 0 0 25px rgba(220, 38, 38, 0.5); transform: translateY(-2px); }
+
+        /* Navigation Bar */
+        .nav-controls-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .btn-nav {
+            font-family: 'Changa', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            padding: 15px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-nav:hover { background: rgba(255,255,255,0.12); transform: translateY(-2px); }
+        .btn-nav:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+
+        /* Team Selector Bar */
+        .turn-selector-bar {
+            background: var(--card-bg);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .turn-selector-bar label {
+            font-size: 0.95rem;
+            color: var(--text-sub);
+            font-weight: 600;
+        }
+
+        .team-toggle-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .team-tab-btn {
+            font-family: 'Changa', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            padding: 8px 20px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: transparent;
+            color: var(--text-sub);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .team-tab-btn.active {
+            background: var(--red-neon);
+            border-color: var(--red-neon);
+            color: #fff;
+            box-shadow: 0 0 15px rgba(255,30,39,0.4);
+        }
+
+        .hotkeys-hint {
+            font-size: 0.75rem;
+            color: var(--text-sub);
+            text-align: center;
+            margin-top: 5px;
+        }
+
+        /* =========================================================
+           بوابة الدخول للغرفة (Room Gate)
+           ========================================================= */
+        .room-gate-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-dark);
+        }
+        .room-gate-card {
+            width: min(420px, 90vw);
+            background: var(--card-bg);
+            border: 1px solid var(--border-glow);
+            border-radius: 16px;
+            padding: 32px 28px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        .room-gate-card h2 {
+            font-family: 'Changa', sans-serif;
+            font-size: 1.3rem;
+            margin-bottom: 8px;
+        }
+        .room-gate-card p {
+            color: var(--text-sub);
+            font-size: 0.85rem;
+            margin-bottom: 20px;
+        }
+        .room-gate-input {
+            width: 100%;
+            padding: 14px;
+            font-size: 1.4rem;
+            letter-spacing: 6px;
+            text-align: center;
+            text-transform: uppercase;
+            border-radius: 10px;
+            border: 1px solid var(--border-glow);
+            background: rgba(255,255,255,0.04);
+            color: var(--text-main);
+            font-family: 'Changa', sans-serif;
+            margin-bottom: 14px;
+        }
+        .room-gate-input:focus {
+            outline: none;
+            border-color: var(--red-neon);
+            box-shadow: 0 0 0 3px rgba(255,30,39,0.15);
+        }
+        .room-gate-btn {
+            width: 100%;
+            padding: 14px;
+            border-radius: 10px;
+            border: none;
+            background: var(--red-neon);
+            color: #fff;
+            font-family: 'Changa', sans-serif;
+            font-weight: 800;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: filter 0.2s;
+        }
+        .room-gate-btn:hover { filter: brightness(1.1); }
+        .room-gate-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .room-gate-error {
+            color: var(--red-neon);
+            font-size: 0.8rem;
+            margin-top: 12px;
+            min-height: 16px;
+        }
+        .room-gate-status {
+            color: var(--green-neon);
+            font-size: 0.8rem;
+            margin-top: 12px;
+            min-height: 16px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- بوابة الدخول للغرفة: يدخل الحكم كود الغرفة (أو يفتح الرابط مع ?room=CODE مباشرة) -->
+    <div id="roomGateScreen" class="room-gate-screen">
+        <div class="room-gate-card">
+            <h2>⚖ الدخول إلى غرفة التحكيم</h2>
+            <p>أدخل كود الغرفة الظاهر بأسفل شاشة المتسابقين للاتصال بها</p>
+            <input type="text" id="roomCodeInput" class="room-gate-input" placeholder="ABC123" maxlength="6">
+            <button class="room-gate-btn" id="roomJoinBtn" onclick="handleJoinRoomClick()">دخول</button>
+            <div class="room-gate-error" id="roomGateError"></div>
+            <div class="room-gate-status" id="roomGateStatus"></div>
+        </div>
+    </div>
+
+    <header class="judge-header" style="display: none;">
+        <div class="brand-zone">
+            <span style="font-size: 1.5rem;">⚖</span>
+            <div class="judge-title">غرفة تحكيم أكاديمية تيت</div>
+        </div>
+        <div class="status-badge">
+            <span class="live-dot"></span>
+            <span>متصل مباشرة بالشاشة — كود الغرفة: <strong id="jRoomCodeTag">—</strong></span>
+        </div>
+    </header>
+
+    <div class="judge-container" style="display: none;">
+
+        <!-- 1. شريط النتائج والفرق -->
+        <div class="scoreboard-row">
+            <div class="team-score-card active-team" id="cardTeamA">
+                <div class="team-meta">
+                    <span class="t-label">الفريق الأول</span>
+                    <div class="t-name" id="jTeamAName">فريق المحركات</div>
+                </div>
+                <div class="score-val-controls">
+                    <button class="mini-btn" onclick="adjustScore('A', -1)">-</button>
+                    <div class="score-num" id="jScoreA">0</div>
+                    <button class="mini-btn" onclick="adjustScore('A', +1)">+</button>
+                </div>
+            </div>
+
+            <div class="center-round-box">
+                <div class="q-progress" id="jProgress">1 / 15</div>
+                <div class="q-cat" id="jCategory">المحرك والاحتراق</div>
+            </div>
+
+            <div class="team-score-card" id="cardTeamB">
+                <div class="team-meta">
+                    <span class="t-label">الفريق الثاني</span>
+                    <div class="t-name" id="jTeamBName">فريق التيربو</div>
+                </div>
+                <div class="score-val-controls">
+                    <button class="mini-btn" onclick="adjustScore('B', -1)">-</button>
+                    <div class="score-num" id="jScoreB">0</div>
+                    <button class="mini-btn" onclick="adjustScore('B', +1)">+</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. تحديد الفريق المجيب حالياً -->
+        <div class="turn-selector-bar">
+            <label>من هو الفريق الذي يجيب على هذا السؤال؟</label>
+            <div class="team-toggle-group">
+                <button class="team-tab-btn active" id="tabTeamA" onclick="setActiveTeam('A')">فريق أ</button>
+                <button class="team-tab-btn" id="tabTeamB" onclick="setActiveTeam('B')">فريق ب</button>
+            </div>
+        </div>
+
+        <!-- 3. السؤال المعروض -->
+        <div class="info-panel">
+            <span class="panel-tag">السؤال المعروض أمام المتسابقين:</span>
+            <p class="q-text-display" id="jQuestionText">جارٍ تحميل السؤال...</p>
+        </div>
+
+        <!-- 4. الإجابة الصحيحة -->
+        <div class="answer-panel">
+            <span class="panel-tag">الإجابة الصحيحة النموذجية:</span>
+            <div class="ans-text-display" id="jAnswerText">—</div>
+        </div>
+
+        <!-- 5. أزرار القرار (صحيح / خاطئ) -->
+        <div class="decision-row">
+            <button class="judge-action-btn btn-correct" onclick="judgeCorrect()" id="jCorrectBtn">
+                <span>✓</span>
+                <span id="jCorrectBtnLabel">إجابة صحيحة (+2 نقطة قبل الخيارات، +1 بعدها)</span>
+            </button>
+            <button class="judge-action-btn btn-wrong" onclick="judgeWrong()">
+                <span>✗</span>
+                <span>إجابة خاطئة (توهج أحمر واهتزاز)</span>
+            </button>
+        </div>
+
+        <!-- 6. نظام التلميحات والخيارات -->
+        <div class="hint-control-box">
+            <div class="hint-status-text" id="jHintStatus">
+                💡 التلميحات: لم يتم كشف أي خيارات أو تلميحات بعد (0/2)
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-hint" id="jHintBtn" onclick="judgeRevealHint()">
+                    💡 كشف الخيارات / التلميح
+                </button>
+                <button class="btn-hint-hide" id="jHintHideBtn" onclick="judgeHideHint()" style="display: none;">
+                    ✕ إخفاء التلميح
+                </button>
+            </div>
+        </div>
+
+        <!-- 7. التنقل بين الأسئلة -->
+        <div class="nav-controls-row">
+            <button class="btn-nav" id="jPrevBtn" onclick="judgePrevQuestion()">← السؤال السابق</button>
+            <button class="btn-nav" id="jNextBtn" onclick="judgeNextQuestion()">السؤال التالي →</button>
+        </div>
+
+        <div class="hotkeys-hint">
+            💡 نصيحة: يمكنك إبقاء هذه النافذة على جوالك أو جهازك المنفصل، بينما تُعرض شاشة المسابقة على البروجكتر.
+        </div>
+    </div>
+
+    <script src="questions.js"></script>
+    <script>
+        // =========================================================
+        // إعداد اتصال Supabase - نفس المفتاح العام (publishable) المستخدم
+        // بشاشة المتسابقين. لا يوضع أي secret key هنا أبداً.
+        // =========================================================
+        const SUPABASE_URL = 'https://ovpjjmohrvmkyaksbjky.supabase.co';
+        const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_Bi3tRmNu5JBrK32XtX-BjQ_JJ16IwNE';
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+        let currentRoom = null;   // آخر نسخة معروفة من صف الغرفة بقاعدة البيانات
+        let roomChannel = null;
+        let judgeCurrentTeam = 'A'; // اختيار محلي بس (أي فريق يجاوب الحين)، ما يُحفظ بقاعدة البيانات
+
+        // =========================================================
+        // الدخول للغرفة
+        // =========================================================
+        async function handleJoinRoomClick() {
+            const input = document.getElementById('roomCodeInput');
+            const code = (input.value || '').trim().toUpperCase();
+            if (code.length < 4) {
+                document.getElementById('roomGateError').textContent = 'اكتب كود الغرفة كامل (6 خانات).';
+                return;
+            }
+            await joinRoom(code);
+        }
+
+        async function joinRoom(code) {
+            const btn = document.getElementById('roomJoinBtn');
+            const errEl = document.getElementById('roomGateError');
+            const statusEl = document.getElementById('roomGateStatus');
+            errEl.textContent = '';
+            statusEl.textContent = 'جارٍ الاتصال...';
+            btn.disabled = true;
+
+            const { data, error } = await supabaseClient
+                .from('rooms')
+                .select('*')
+                .eq('room_code', code)
+                .maybeSingle();
+
+            btn.disabled = false;
+
+            if (error || !data) {
+                statusEl.textContent = '';
+                errEl.textContent = 'ما لقينا غرفة بهذا الكود. تأكد إن اللعبة بدأت بجهاز الشاشة الرئيسي وجرب الكود مرة ثانية.';
+                return;
+            }
+
+            currentRoom = data;
+            document.getElementById('roomGateScreen').style.display = 'none';
+            document.querySelector('.judge-header').style.display = 'flex';
+            document.querySelector('.judge-container').style.display = 'block';
+            document.getElementById('jRoomCodeTag').textContent = currentRoom.room_code;
+
+            subscribeToRoomRealtime(currentRoom.id);
+            renderRoomState();
+        }
+
+        function subscribeToRoomRealtime(roomId) {
+            if (roomChannel) supabaseClient.removeChannel(roomChannel);
+            roomChannel = supabaseClient
+                .channel('judge-room-' + roomId)
+                .on('postgres_changes', {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'rooms',
+                    filter: `id=eq.${roomId}`
+                }, (payload) => {
+                    currentRoom = payload.new;
+                    renderRoomState();
+                })
+                .subscribe();
+        }
+
+        // تحديث حقول بصف الغرفة في قاعدة البيانات، وتحديث الواجهة فور نجاح التحديث
+        async function updateRoomFields(fields) {
+            if (!currentRoom || !currentRoom.id) return;
+            const { data, error } = await supabaseClient
+                .from('rooms')
+                .update(fields)
+                .eq('id', currentRoom.id)
+                .select()
+                .single();
+            if (!error && data) {
+                currentRoom = data;
+                renderRoomState();
+            } else if (error) {
+                console.error('تعذر تحديث الغرفة:', error.message);
+            }
+        }
+
+        // إدخال محاولة تلقائية إذا كان الرابط يحتوي ?room=CODE
+        (function tryAutoJoinFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            const code = params.get('room');
+            if (code) {
+                document.getElementById('roomCodeInput').value = code.toUpperCase();
+                joinRoom(code.toUpperCase());
+            }
+        })();
+
+        // =========================================================
+        // عرض حالة الغرفة الحالية على لوحة الحكم
+        // =========================================================
+        function renderRoomState() {
+            if (!currentRoom) return;
+
+            document.getElementById('jTeamAName').textContent = currentRoom.team_a_name;
+            document.getElementById('jTeamBName').textContent = currentRoom.team_b_name;
+            document.getElementById('tabTeamA').textContent   = currentRoom.team_a_name;
+            document.getElementById('tabTeamB').textContent   = currentRoom.team_b_name;
+            document.getElementById('jScoreA').textContent    = currentRoom.score_a;
+            document.getElementById('jScoreB').textContent    = currentRoom.score_b;
+
+            const list = (currentRoom.deck && currentRoom.deck.length > 0) ? currentRoom.deck : questionBank;
+            const q = list[currentRoom.current_index];
+
+            if (q) {
+                document.getElementById('jQuestionText').textContent = q.question;
+                document.getElementById('jAnswerText').textContent   = q.answer;
+                document.getElementById('jProgress').textContent     = `${currentRoom.current_index + 1} / ${list.length}`;
+                document.getElementById('jCategory').textContent     = q.category || 'عام';
+            }
+
+            document.getElementById('jPrevBtn').disabled = currentRoom.current_index === 0;
+
+            const hintBtn = document.getElementById('jHintBtn');
+            const hideBtn = document.getElementById('jHintHideBtn');
+            const hintStatus = document.getElementById('jHintStatus');
+            const correctLabel = document.getElementById('jCorrectBtnLabel');
+
+            if (!currentRoom.options_shown) {
+                hintBtn.disabled = false;
+                hintBtn.textContent = '💡 كشف الخيارات (1/2)';
+                hideBtn.style.display = 'none';
+                hintStatus.textContent = '💡 التلميحات: لم يتم كشف أي خيارات أو تلميحات بعد (0/2)';
+                correctLabel.textContent = 'إجابة صحيحة (+2 نقطة قبل الخيارات)';
+            } else if (currentRoom.hint_stage < 2) {
+                hintBtn.disabled = false;
+                hintBtn.textContent = '💡 كشف التلميح الهندسي (2/2)';
+                hideBtn.style.display = 'none';
+                hintStatus.textContent = '✓ تم كشف الخيارات الأربعة أمام المتسابقين!';
+                correctLabel.textContent = 'إجابة صحيحة (+1 نقطة بعد الخيارات)';
+            } else {
+                hintBtn.disabled = false;
+                hintBtn.textContent = '💡 إعادة إظهار التلميح';
+                hideBtn.style.display = 'inline-block';
+                hintStatus.textContent = '✓ تم كشف التلميح الهندسي للمتسابقين!';
+                correctLabel.textContent = 'إجابة صحيحة (+1 نقطة بعد الخيارات)';
+            }
+        }
+
+        function setActiveTeam(team) {
+            judgeCurrentTeam = team;
+            document.getElementById('tabTeamA').classList.toggle('active', team === 'A');
+            document.getElementById('tabTeamB').classList.toggle('active', team === 'B');
+            document.getElementById('cardTeamA').classList.toggle('active-team', team === 'A');
+            document.getElementById('cardTeamB').classList.toggle('active-team', team === 'B');
+        }
+
+        function adjustScore(team, delta) {
+            if (!currentRoom) return;
+            if (team === 'A') {
+                updateRoomFields({ score_a: Math.max(0, currentRoom.score_a + delta) });
+            } else {
+                updateRoomFields({ score_b: Math.max(0, currentRoom.score_b + delta) });
+            }
+        }
+
+        function judgeCorrect() {
+            if (!currentRoom) return;
+            // نقطتين إذا جاوب صح قبل ما تنكشف الخيارات، ونقطة وحدة بس بعد كشفها
+            const pointsEarned = currentRoom.options_shown ? 1 : 2;
+            const fields = { last_event: { type: 'correct', team: judgeCurrentTeam, nonce: Date.now() } };
+            if (judgeCurrentTeam === 'A') {
+                fields.score_a = currentRoom.score_a + pointsEarned;
+            } else {
+                fields.score_b = currentRoom.score_b + pointsEarned;
+            }
+            updateRoomFields(fields);
+
+            // الانتقال للسؤال التالي مباشرة بعد الإجابة الصحيحة
+            setTimeout(() => {
+                judgeNextQuestion();
+            }, 1500);
+        }
+
+        function judgeWrong() {
+            if (!currentRoom) return;
+            updateRoomFields({ last_event: { type: 'wrong', team: judgeCurrentTeam, nonce: Date.now() } });
+        }
+
+        function judgeRevealHint() {
+            if (!currentRoom) return;
+            const list = (currentRoom.deck && currentRoom.deck.length > 0) ? currentRoom.deck : questionBank;
+            const q = list[currentRoom.current_index];
+
+            if (!currentRoom.options_shown) {
+                updateRoomFields({ options_shown: true, hint_stage: 1 });
+            } else if (currentRoom.hint_stage === 1) {
+                updateRoomFields({
+                    hint_stage: 2,
+                    hint_visible: true,
+                    hint_text: q.hint1,
+                    hint_nonce: (currentRoom.hint_nonce || 0) + 1
+                });
+            } else {
+                // إعادة إظهار نفس التلميح
+                updateRoomFields({
+                    hint_visible: true,
+                    hint_nonce: (currentRoom.hint_nonce || 0) + 1
+                });
+            }
+        }
+
+        function judgeHideHint() {
+            if (!currentRoom) return;
+            updateRoomFields({ hint_visible: false });
+        }
+
+        async function judgeNextQuestion() {
+            if (!currentRoom) return;
+            const list = (currentRoom.deck && currentRoom.deck.length > 0) ? currentRoom.deck : questionBank;
+            if (currentRoom.current_index < list.length - 1) {
+                await updateRoomFields({
+                    current_index: currentRoom.current_index + 1,
+                    options_shown: false,
+                    hint_stage: 0,
+                    hint_visible: false,
+                    hint_text: null
+                });
+            } else {
+                // انتهت الأسئلة: نسجل المباراة بسجل التاريخ ونقفل الغرفة
+                const winner = currentRoom.score_a === currentRoom.score_b
+                    ? 'تعادل'
+                    : (currentRoom.score_a > currentRoom.score_b ? currentRoom.team_a_name : currentRoom.team_b_name);
+
+                await supabaseClient.from('match_history').insert({
+                    room_code: currentRoom.room_code,
+                    team_a_name: currentRoom.team_a_name,
+                    team_b_name: currentRoom.team_b_name,
+                    score_a: currentRoom.score_a,
+                    score_b: currentRoom.score_b,
+                    winner: winner,
+                    question_count: list.length
+                });
+
+                await updateRoomFields({ status: 'finished' });
+
+                alert(`انتهت جميع الأسئلة!\nالنتيجة النهائية:\n${currentRoom.team_a_name}: ${currentRoom.score_a}\n${currentRoom.team_b_name}: ${currentRoom.score_b}\nالفائز: ${winner}`);
+            }
+        }
+
+        function judgePrevQuestion() {
+            if (!currentRoom) return;
+            if (currentRoom.current_index > 0) {
+                updateRoomFields({
+                    current_index: currentRoom.current_index - 1,
+                    options_shown: false,
+                    hint_stage: 0,
+                    hint_visible: false,
+                    hint_text: null
+                });
+            }
+        }
+    </script>
+</body>
+</html>
