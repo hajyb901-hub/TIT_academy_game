@@ -51,8 +51,9 @@ body {
     font-family: var(--font-body);
     background-color: var(--bg-deep);
     color: var(--text-pure);
-    height: 100vh;
-    overflow: hidden;
+    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
     direction: rtl;
     position: relative;
 }
@@ -607,11 +608,12 @@ body {
 .screen {
     display: none;
     width: 100%;
-    height: 100vh;
+    min-height: 100vh;
     padding-top: 60px;
     position: relative;
     z-index: 1;
-    overflow: hidden; /* المحتوى الداخلي (ساحة السؤال) يتمدد وينضغط بدل ما يطفح خارج الشاشة */
+    overflow-y: auto; /* لو الشاشة انضغطت (مثلاً بسبب فتح أدوات المطور)، تقدر تسكرول فوق وتحت بدل ما ينقص محتوى */
+    overflow-x: hidden;
 }
 .screen.active {
     display: flex;
@@ -1373,6 +1375,21 @@ body {
     border-radius: 50%;
     background: var(--matrix-green);
     box-shadow: 0 0 8px var(--matrix-green);
+}
+.room-code-tag {
+    margin-right: 18px;
+    padding: 3px 14px;
+    border-radius: 20px;
+    background: rgba(255, 30, 39, 0.1);
+    border: 1px solid rgba(255, 30, 39, 0.3);
+    color: var(--text-muted);
+    letter-spacing: 1px;
+}
+.room-code-tag strong {
+    color: var(--neon-red);
+    font-family: var(--font-heading);
+    letter-spacing: 3px;
+    font-size: 0.95rem;
 }
 .footer-center-brand {
     font-family: var(--font-heading);
