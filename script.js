@@ -304,6 +304,7 @@ function generateRoomCode() {
 
 async function createGameRoom(nameA, nameB, deck) {
     let data = null;
+    let lastError = null;
     for (let attempt = 0; attempt < 5 && !data; attempt++) {
         const code = generateRoomCode();
         const { data: inserted, error } = await supabaseClient
@@ -319,11 +320,16 @@ async function createGameRoom(nameA, nameB, deck) {
             .select()
             .single();
         if (!error) data = inserted;
-        else console.warn('محاولة إنشاء غرفة فشلت، إعادة محاولة...', error.message);
+        else {
+            lastError = error;
+            console.warn('محاولة إنشاء غرفة فشلت، إعادة محاولة...', error.message, error);
+        }
     }
 
     if (!data) {
-        console.error('تعذر إنشاء غرفة اللعبة على Supabase - راح تشتغل اللعبة بدون مزامنة عن بعد.');
+        console.error('تعذر إنشاء غرفة اللعبة على Supabase - سبب الخطأ:', lastError);
+        const el = document.getElementById('roomCodeDisplay');
+        if (el) el.textContent = 'تعذر الاتصال! افتح Console (F12)';
         return null;
     }
 
