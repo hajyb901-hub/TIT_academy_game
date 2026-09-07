@@ -7,7 +7,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Changa:wght@400;600;700;800;900&family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
             --red-neon: #ff1e27;
@@ -385,112 +384,22 @@
             text-align: center;
             margin-top: 5px;
         }
-
-        /* =========================================================
-           بوابة الدخول للغرفة (Room Gate)
-           ========================================================= */
-        .room-gate-screen {
-            position: fixed;
-            inset: 0;
-            z-index: 500;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--bg-dark);
-        }
-        .room-gate-card {
-            width: min(420px, 90vw);
-            background: var(--card-bg);
-            border: 1px solid var(--border-glow);
-            border-radius: 16px;
-            padding: 32px 28px;
-            text-align: center;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-        }
-        .room-gate-card h2 {
-            font-family: 'Changa', sans-serif;
-            font-size: 1.3rem;
-            margin-bottom: 8px;
-        }
-        .room-gate-card p {
-            color: var(--text-sub);
-            font-size: 0.85rem;
-            margin-bottom: 20px;
-        }
-        .room-gate-input {
-            width: 100%;
-            padding: 14px;
-            font-size: 1.4rem;
-            letter-spacing: 6px;
-            text-align: center;
-            text-transform: uppercase;
-            border-radius: 10px;
-            border: 1px solid var(--border-glow);
-            background: rgba(255,255,255,0.04);
-            color: var(--text-main);
-            font-family: 'Changa', sans-serif;
-            margin-bottom: 14px;
-        }
-        .room-gate-input:focus {
-            outline: none;
-            border-color: var(--red-neon);
-            box-shadow: 0 0 0 3px rgba(255,30,39,0.15);
-        }
-        .room-gate-btn {
-            width: 100%;
-            padding: 14px;
-            border-radius: 10px;
-            border: none;
-            background: var(--red-neon);
-            color: #fff;
-            font-family: 'Changa', sans-serif;
-            font-weight: 800;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: filter 0.2s;
-        }
-        .room-gate-btn:hover { filter: brightness(1.1); }
-        .room-gate-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-        .room-gate-error {
-            color: var(--red-neon);
-            font-size: 0.8rem;
-            margin-top: 12px;
-            min-height: 16px;
-        }
-        .room-gate-status {
-            color: var(--green-neon);
-            font-size: 0.8rem;
-            margin-top: 12px;
-            min-height: 16px;
-        }
     </style>
 </head>
 <body>
 
-    <!-- بوابة الدخول للغرفة: يدخل الحكم كود الغرفة (أو يفتح الرابط مع ?room=CODE مباشرة) -->
-    <div id="roomGateScreen" class="room-gate-screen">
-        <div class="room-gate-card">
-            <h2>⚖ الدخول إلى غرفة التحكيم</h2>
-            <p>أدخل كود الغرفة الظاهر بأسفل شاشة المتسابقين للاتصال بها</p>
-            <input type="text" id="roomCodeInput" class="room-gate-input" placeholder="ABC123" maxlength="6">
-            <button class="room-gate-btn" id="roomJoinBtn" onclick="handleJoinRoomClick()">دخول</button>
-            <div class="room-gate-error" id="roomGateError"></div>
-            <div class="room-gate-status" id="roomGateStatus"></div>
-        </div>
-    </div>
-
-    <header class="judge-header" style="display: none;">
+    <header class="judge-header">
         <div class="brand-zone">
             <span style="font-size: 1.5rem;">⚖</span>
             <div class="judge-title">غرفة تحكيم أكاديمية تيت</div>
         </div>
         <div class="status-badge">
             <span class="live-dot"></span>
-            <span>متصل مباشرة بالشاشة — كود الغرفة: <strong id="jRoomCodeTag">—</strong></span>
+            <span>متصل مباشرة بالشاشة</span>
         </div>
     </header>
 
-    <div class="judge-container" style="display: none;">
+    <div class="judge-container">
 
         <!-- 1. شريط النتائج والفرق -->
         <div class="scoreboard-row">
@@ -547,9 +456,9 @@
 
         <!-- 5. أزرار القرار (صحيح / خاطئ) -->
         <div class="decision-row">
-            <button class="judge-action-btn btn-correct" onclick="judgeCorrect()" id="jCorrectBtn">
+            <button class="judge-action-btn btn-correct" onclick="judgeCorrect()">
                 <span>✓</span>
-                <span id="jCorrectBtnLabel">إجابة صحيحة (+2 نقطة قبل الخيارات، +1 بعدها)</span>
+                <span>إجابة صحيحة (+1 نقطة وتوهج أخضر)</span>
             </button>
             <button class="judge-action-btn btn-wrong" onclick="judgeWrong()">
                 <span>✗</span>
@@ -585,159 +494,113 @@
 
     <script src="questions.js"></script>
     <script>
-        // =========================================================
-        // إعداد اتصال Supabase - نفس المفتاح العام (publishable) المستخدم
-        // بشاشة المتسابقين. لا يوضع أي secret key هنا أبداً.
-        // =========================================================
-        const SUPABASE_URL = 'https://ovpjjmohrvmkyaksbjky.supabase.co';
-        const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_Bi3tRmNu5JBrK32XtX-BjQ_JJ16IwNE';
-        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+        // نفس آلية المزامنة اللي في script.js (localStorage بدل BroadcastChannel)
+        const SYNC_STATE_KEY = 'tit_quiz_state_v1';
+        const SYNC_EVENT_KEY = 'tit_quiz_event_v1';
 
-        let currentRoom = null;   // آخر نسخة معروفة من صف الغرفة بقاعدة البيانات
-        let roomChannel = null;
-        let judgeCurrentTeam = 'A'; // اختيار محلي بس (أي فريق يجاوب الحين)، ما يُحفظ بقاعدة البيانات
+        function sendSyncEvent(payload) {
+            try {
+                localStorage.setItem(SYNC_EVENT_KEY, JSON.stringify({ ...payload, ts: Date.now() }));
+            } catch (e) {}
+        }
 
-        // =========================================================
-        // الدخول للغرفة
-        // =========================================================
-        async function handleJoinRoomClick() {
-            const input = document.getElementById('roomCodeInput');
-            const code = (input.value || '').trim().toUpperCase();
-            if (code.length < 4) {
-                document.getElementById('roomGateError').textContent = 'اكتب كود الغرفة كامل (6 خانات).';
+        let judgeState = {
+            currentIndex: 0,
+            scoreA: 0,
+            scoreB: 0,
+            currentTeam: 'A',
+            hintCount: 0,
+            optionsShown: false,
+            hintShown: false,
+            teamAName: 'الفريق الأول',
+            teamBName: 'الفريق الثاني',
+            currentDeck: []
+        };
+
+        // استقبال التحديثات من الشاشة الرئيسية (تُكتب في localStorage فتصلنا
+        // كحدث 'storage' لأننا في نافذة/تبويب مختلف عن اللي كتبها)
+        window.addEventListener('storage', (e) => {
+            if (e.key !== SYNC_STATE_KEY || !e.newValue) return;
+            applyStateSnapshot(e.newValue);
+        });
+
+        function applyStateSnapshot(raw) {
+            let data;
+            try {
+                data = JSON.parse(raw);
+            } catch (err) {
                 return;
             }
-            await joinRoom(code);
+            judgeState.currentIndex = data.index || 0;
+            judgeState.scoreA       = data.scoreA || 0;
+            judgeState.scoreB       = data.scoreB || 0;
+            judgeState.teamAName    = data.teamAName || judgeState.teamAName;
+            judgeState.teamBName    = data.teamBName || judgeState.teamBName;
+            judgeState.currentDeck  = data.currentDeck || [];
+            judgeState.optionsShown = !!data.optionsShown;
+            updateJudgeView();
         }
 
-        async function joinRoom(code) {
-            const btn = document.getElementById('roomJoinBtn');
-            const errEl = document.getElementById('roomGateError');
-            const statusEl = document.getElementById('roomGateStatus');
-            errEl.textContent = '';
-            statusEl.textContent = 'جارٍ الاتصال...';
-            btn.disabled = true;
-
-            const { data, error } = await supabaseClient
-                .from('rooms')
-                .select('*')
-                .eq('room_code', code)
-                .maybeSingle();
-
-            btn.disabled = false;
-
-            if (error || !data) {
-                statusEl.textContent = '';
-                errEl.textContent = 'ما لقينا غرفة بهذا الكود. تأكد إن اللعبة بدأت بجهاز الشاشة الرئيسي وجرب الكود مرة ثانية.';
-                return;
-            }
-
-            currentRoom = data;
-            document.getElementById('roomGateScreen').style.display = 'none';
-            document.querySelector('.judge-header').style.display = 'flex';
-            document.querySelector('.judge-container').style.display = 'block';
-            document.getElementById('jRoomCodeTag').textContent = currentRoom.room_code;
-
-            subscribeToRoomRealtime(currentRoom.id);
-            renderRoomState();
+        // قراءة الحالة الحالية فوراً عند فتح/تحديث صفحة الحكم (يحل مشكلة فقدان
+        // المزامنة لو صار ريفريش للوحة الحكم نفسها)
+        function loadInitialStateFromStorage() {
+            try {
+                const raw = localStorage.getItem(SYNC_STATE_KEY);
+                if (raw) applyStateSnapshot(raw);
+            } catch (e) {}
         }
 
-        function subscribeToRoomRealtime(roomId) {
-            if (roomChannel) supabaseClient.removeChannel(roomChannel);
-            roomChannel = supabaseClient
-                .channel('judge-room-' + roomId)
-                .on('postgres_changes', {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'rooms',
-                    filter: `id=eq.${roomId}`
-                }, (payload) => {
-                    currentRoom = payload.new;
-                    renderRoomState();
-                })
-                .subscribe();
-        }
+        function updateJudgeView() {
+            // تحديث أسماء الفرق
+            document.getElementById('jTeamAName').textContent = judgeState.teamAName;
+            document.getElementById('jTeamBName').textContent = judgeState.teamBName;
+            document.getElementById('tabTeamA').textContent   = judgeState.teamAName;
+            document.getElementById('tabTeamB').textContent   = judgeState.teamBName;
+            document.getElementById('jScoreA').textContent    = judgeState.scoreA;
+            document.getElementById('jScoreB').textContent    = judgeState.scoreB;
 
-        // تحديث حقول بصف الغرفة في قاعدة البيانات، وتحديث الواجهة فور نجاح التحديث
-        async function updateRoomFields(fields) {
-            if (!currentRoom || !currentRoom.id) return;
-            const { data, error } = await supabaseClient
-                .from('rooms')
-                .update(fields)
-                .eq('id', currentRoom.id)
-                .select()
-                .single();
-            if (!error && data) {
-                currentRoom = data;
-                renderRoomState();
-            } else if (error) {
-                console.error('تعذر تحديث الغرفة:', error.message);
-            }
-        }
-
-        // إدخال محاولة تلقائية إذا كان الرابط يحتوي ?room=CODE
-        (function tryAutoJoinFromURL() {
-            const params = new URLSearchParams(window.location.search);
-            const code = params.get('room');
-            if (code) {
-                document.getElementById('roomCodeInput').value = code.toUpperCase();
-                joinRoom(code.toUpperCase());
-            }
-        })();
-
-        // =========================================================
-        // عرض حالة الغرفة الحالية على لوحة الحكم
-        // =========================================================
-        function renderRoomState() {
-            if (!currentRoom) return;
-
-            document.getElementById('jTeamAName').textContent = currentRoom.team_a_name;
-            document.getElementById('jTeamBName').textContent = currentRoom.team_b_name;
-            document.getElementById('tabTeamA').textContent   = currentRoom.team_a_name;
-            document.getElementById('tabTeamB').textContent   = currentRoom.team_b_name;
-            document.getElementById('jScoreA').textContent    = currentRoom.score_a;
-            document.getElementById('jScoreB').textContent    = currentRoom.score_b;
-
-            const list = (currentRoom.deck && currentRoom.deck.length > 0) ? currentRoom.deck : questionBank;
-            const q = list[currentRoom.current_index];
+            const list = judgeState.currentDeck.length > 0 ? judgeState.currentDeck : questionBank;
+            const q = list[judgeState.currentIndex];
 
             if (q) {
                 document.getElementById('jQuestionText').textContent = q.question;
                 document.getElementById('jAnswerText').textContent   = q.answer;
-                document.getElementById('jProgress').textContent     = `${currentRoom.current_index + 1} / ${list.length}`;
+                document.getElementById('jProgress').textContent     = `${judgeState.currentIndex + 1} / ${list.length}`;
                 document.getElementById('jCategory').textContent     = q.category || 'عام';
             }
 
-            document.getElementById('jPrevBtn').disabled = currentRoom.current_index === 0;
+            document.getElementById('jPrevBtn').disabled = judgeState.currentIndex === 0;
+
+            // نصفّر زر التلميح فقط لو السؤال تغيّر فعلاً (مش في كل تحديث مزامنة)
+            // عشان لو صفحة الحكم سوت ريفريش وهي الخيارات ظاهرة، ما يرجع الزر يقول
+            // "لم يتم الكشف" وهو أصلاً مكشوف عند المتسابقين
+            const questionChanged = judgeState._lastRenderedIndex !== judgeState.currentIndex;
+            judgeState._lastRenderedIndex = judgeState.currentIndex;
+            if (questionChanged) {
+                judgeState.hintShown = false;
+            }
 
             const hintBtn = document.getElementById('jHintBtn');
             const hideBtn = document.getElementById('jHintHideBtn');
-            const hintStatus = document.getElementById('jHintStatus');
-            const correctLabel = document.getElementById('jCorrectBtnLabel');
 
-            if (!currentRoom.options_shown) {
+            if (judgeState.optionsShown) {
+                judgeState.hintCount = Math.max(judgeState.hintCount, 1);
+                hintBtn.disabled = false;
+                hintBtn.textContent = judgeState.hintShown ? '💡 إعادة إظهار التلميح' : '💡 كشف التلميح الهندسي (2/2)';
+                hideBtn.style.display = judgeState.hintShown ? 'inline-block' : 'none';
+                document.getElementById('jHintStatus').textContent = '✓ تم كشف الخيارات الأربعة أمام المتسابقين!';
+            } else {
+                judgeState.hintCount = 0;
+                judgeState.hintShown = false;
                 hintBtn.disabled = false;
                 hintBtn.textContent = '💡 كشف الخيارات (1/2)';
                 hideBtn.style.display = 'none';
-                hintStatus.textContent = '💡 التلميحات: لم يتم كشف أي خيارات أو تلميحات بعد (0/2)';
-                correctLabel.textContent = 'إجابة صحيحة (+2 نقطة قبل الخيارات)';
-            } else if (currentRoom.hint_stage < 2) {
-                hintBtn.disabled = false;
-                hintBtn.textContent = '💡 كشف التلميح الهندسي (2/2)';
-                hideBtn.style.display = 'none';
-                hintStatus.textContent = '✓ تم كشف الخيارات الأربعة أمام المتسابقين!';
-                correctLabel.textContent = 'إجابة صحيحة (+1 نقطة بعد الخيارات)';
-            } else {
-                hintBtn.disabled = false;
-                hintBtn.textContent = '💡 إعادة إظهار التلميح';
-                hideBtn.style.display = 'inline-block';
-                hintStatus.textContent = '✓ تم كشف التلميح الهندسي للمتسابقين!';
-                correctLabel.textContent = 'إجابة صحيحة (+1 نقطة بعد الخيارات)';
+                document.getElementById('jHintStatus').textContent = '💡 التلميحات: لم يتم كشف أي خيارات أو تلميحات بعد (0/2)';
             }
         }
 
         function setActiveTeam(team) {
-            judgeCurrentTeam = team;
+            judgeState.currentTeam = team;
             document.getElementById('tabTeamA').classList.toggle('active', team === 'A');
             document.getElementById('tabTeamB').classList.toggle('active', team === 'B');
             document.getElementById('cardTeamA').classList.toggle('active-team', team === 'A');
@@ -745,25 +608,32 @@
         }
 
         function adjustScore(team, delta) {
-            if (!currentRoom) return;
             if (team === 'A') {
-                updateRoomFields({ score_a: Math.max(0, currentRoom.score_a + delta) });
+                judgeState.scoreA = Math.max(0, judgeState.scoreA + delta);
             } else {
-                updateRoomFields({ score_b: Math.max(0, currentRoom.score_b + delta) });
+                judgeState.scoreB = Math.max(0, judgeState.scoreB + delta);
             }
+            sendSyncEvent({
+                type: 'UPDATE_SCORE',
+                data: { scoreA: judgeState.scoreA, scoreB: judgeState.scoreB }
+            });
+            document.getElementById('jScoreA').textContent = judgeState.scoreA;
+            document.getElementById('jScoreB').textContent = judgeState.scoreB;
         }
 
         function judgeCorrect() {
-            if (!currentRoom) return;
-            // نقطتين إذا جاوب صح قبل ما تنكشف الخيارات، ونقطة وحدة بس بعد كشفها
-            const pointsEarned = currentRoom.options_shown ? 1 : 2;
-            const fields = { last_event: { type: 'correct', team: judgeCurrentTeam, nonce: Date.now() } };
-            if (judgeCurrentTeam === 'A') {
-                fields.score_a = currentRoom.score_a + pointsEarned;
+            if (judgeState.currentTeam === 'A') {
+                judgeState.scoreA++;
             } else {
-                fields.score_b = currentRoom.score_b + pointsEarned;
+                judgeState.scoreB++;
             }
-            updateRoomFields(fields);
+            sendSyncEvent({ type: 'MARK_CORRECT', team: judgeState.currentTeam });
+            sendSyncEvent({
+                type: 'UPDATE_SCORE',
+                data: { scoreA: judgeState.scoreA, scoreB: judgeState.scoreB }
+            });
+            document.getElementById('jScoreA').textContent = judgeState.scoreA;
+            document.getElementById('jScoreB').textContent = judgeState.scoreB;
 
             // الانتقال للسؤال التالي مباشرة بعد الإجابة الصحيحة
             setTimeout(() => {
@@ -772,83 +642,77 @@
         }
 
         function judgeWrong() {
-            if (!currentRoom) return;
-            updateRoomFields({ last_event: { type: 'wrong', team: judgeCurrentTeam, nonce: Date.now() } });
+            sendSyncEvent({ type: 'MARK_WRONG' });
         }
 
         function judgeRevealHint() {
-            if (!currentRoom) return;
-            const list = (currentRoom.deck && currentRoom.deck.length > 0) ? currentRoom.deck : questionBank;
-            const q = list[currentRoom.current_index];
+            const list = judgeState.currentDeck.length > 0 ? judgeState.currentDeck : questionBank;
+            const q = list[judgeState.currentIndex];
 
-            if (!currentRoom.options_shown) {
-                updateRoomFields({ options_shown: true, hint_stage: 1 });
-            } else if (currentRoom.hint_stage === 1) {
-                updateRoomFields({
-                    hint_stage: 2,
-                    hint_visible: true,
-                    hint_text: q.hint1,
-                    hint_nonce: (currentRoom.hint_nonce || 0) + 1
+            if (!judgeState.optionsShown) {
+                judgeState.optionsShown = true;
+                judgeState.hintCount = 1;
+                sendSyncEvent({ type: 'SHOW_OPTIONS' });
+
+                // كشف الخيارات ينقص نقطة من رصيد الفريق المجيب (عقوبة الاستعانة بالخيارات)
+                if (judgeState.currentTeam === 'A') {
+                    judgeState.scoreA = Math.max(0, judgeState.scoreA - 1);
+                } else {
+                    judgeState.scoreB = Math.max(0, judgeState.scoreB - 1);
+                }
+                sendSyncEvent({
+                    type: 'UPDATE_SCORE',
+                    data: { scoreA: judgeState.scoreA, scoreB: judgeState.scoreB }
                 });
-            } else {
-                // إعادة إظهار نفس التلميح
-                updateRoomFields({
-                    hint_visible: true,
-                    hint_nonce: (currentRoom.hint_nonce || 0) + 1
-                });
+                document.getElementById('jScoreA').textContent = judgeState.scoreA;
+                document.getElementById('jScoreB').textContent = judgeState.scoreB;
+
+                document.getElementById('jHintStatus').textContent = '✓ تم كشف الخيارات الأربعة أمام المتسابقين! (−1 نقطة)';
+                document.getElementById('jHintBtn').textContent = '💡 كشف التلميح الهندسي (2/2)';
+            } else if (judgeState.hintCount === 1) {
+                judgeState.hintCount = 2;
+                judgeState.hintShown = true;
+                sendSyncEvent({ type: 'SHOW_HINT', hintText: q.hint1 });
+                document.getElementById('jHintStatus').textContent = '✓ تم كشف التلميح الهندسي للمتسابقين!';
+                document.getElementById('jHintBtn').textContent = '💡 إعادة إظهار التلميح';
+                document.getElementById('jHintBtn').disabled = false;
+                document.getElementById('jHintHideBtn').style.display = 'inline-block';
+            } else if (judgeState.hintCount === 2 && judgeState.hintShown) {
+                // إعادة إظهار التلميح
+                sendSyncEvent({ type: 'SHOW_HINT', hintText: q.hint1 });
+                document.getElementById('jHintStatus').textContent = '✓ تم إعادة إظهار التلميح!';
             }
         }
 
         function judgeHideHint() {
-            if (!currentRoom) return;
-            updateRoomFields({ hint_visible: false });
+            sendSyncEvent({ type: 'HIDE_HINT' });
+            document.getElementById('jHintStatus').textContent = '✓ تم إخفاء التلميح (يمكنك إعادة إظهاره)';
         }
 
-        async function judgeNextQuestion() {
-            if (!currentRoom) return;
-            const list = (currentRoom.deck && currentRoom.deck.length > 0) ? currentRoom.deck : questionBank;
-            if (currentRoom.current_index < list.length - 1) {
-                await updateRoomFields({
-                    current_index: currentRoom.current_index + 1,
-                    options_shown: false,
-                    hint_stage: 0,
-                    hint_visible: false,
-                    hint_text: null
-                });
+        function judgeNextQuestion() {
+            const list = judgeState.currentDeck.length > 0 ? judgeState.currentDeck : questionBank;
+            if (judgeState.currentIndex < list.length - 1) {
+                judgeState.currentIndex++;
+                judgeState.optionsShown = false; // السؤال الجديد يبدأ بدون خيارات مكشوفة
+                sendSyncEvent({ type: 'NEXT_QUESTION', index: judgeState.currentIndex });
+                updateJudgeView();
             } else {
-                // انتهت الأسئلة: نسجل المباراة بسجل التاريخ ونقفل الغرفة
-                const winner = currentRoom.score_a === currentRoom.score_b
-                    ? 'تعادل'
-                    : (currentRoom.score_a > currentRoom.score_b ? currentRoom.team_a_name : currentRoom.team_b_name);
-
-                await supabaseClient.from('match_history').insert({
-                    room_code: currentRoom.room_code,
-                    team_a_name: currentRoom.team_a_name,
-                    team_b_name: currentRoom.team_b_name,
-                    score_a: currentRoom.score_a,
-                    score_b: currentRoom.score_b,
-                    winner: winner,
-                    question_count: list.length
-                });
-
-                await updateRoomFields({ status: 'finished' });
-
-                alert(`انتهت جميع الأسئلة!\nالنتيجة النهائية:\n${currentRoom.team_a_name}: ${currentRoom.score_a}\n${currentRoom.team_b_name}: ${currentRoom.score_b}\nالفائز: ${winner}`);
+                alert(`انتهت جميع الأسئلة!\nالنتيجة النهائية:\n${judgeState.teamAName}: ${judgeState.scoreA}\n${judgeState.teamBName}: ${judgeState.scoreB}`);
             }
         }
 
         function judgePrevQuestion() {
-            if (!currentRoom) return;
-            if (currentRoom.current_index > 0) {
-                updateRoomFields({
-                    current_index: currentRoom.current_index - 1,
-                    options_shown: false,
-                    hint_stage: 0,
-                    hint_visible: false,
-                    hint_text: null
-                });
+            if (judgeState.currentIndex > 0) {
+                judgeState.currentIndex--;
+                judgeState.optionsShown = false;
+                sendSyncEvent({ type: 'NEXT_QUESTION', index: judgeState.currentIndex });
+                updateJudgeView();
             }
         }
+
+        // قراءة الحالة الحالية فوراً عند فتح/تحديث صفحة الحكم
+        loadInitialStateFromStorage();
+        updateJudgeView();
     </script>
 </body>
 </html>
