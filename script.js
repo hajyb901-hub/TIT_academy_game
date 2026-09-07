@@ -14,20 +14,40 @@ let gameState = {
     roundQuestionCount: 15,
     deck: [], // بنك الأسئلة العشوائي للجولة الحالية
     flashTimeout: null,
-    isTransitioning: false,
-    roomCode: null,
-    roomId: null,
-    roomChannel: null
+    isTransitioning: false
 };
 
-// =========================================================
-// إعداد اتصال Supabase (نظام الغرف - مزامنة بين أجهزة مختلفة)
-// المفتاح هنا هو الـ publishable key فقط، وهو آمن للظهور في المتصفح
-// (محمي بصلاحيات RLS من جهة قاعدة البيانات) - لا يوضع هنا أبداً أي secret key
-// =========================================================
-const SUPABASE_URL = 'https://ovpjjmohrvmkyaksbjky.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_Bi3tRmNu5JBrK32XtX-BjQ_JJ16IwNE';
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+// قناة المزامنة والحفظ بين شاشة المتسابقين ولوحة الحكم
+// (localStorage بدل BroadcastChannel لأنها مدعومة في كل المتصفحات تقريباً،
+// ولأنها تعطينا استعادة الحالة تلقائياً بعد الريفريش كنتيجة إضافية)
+const SYNC_STATE_KEY = 'tit_quiz_state_v1';
+const SYNC_EVENT_KEY = 'tit_quiz_event_v1';
+
+// حفظ اللقطة الكاملة للحالة الحالية (تُقرأ من لوحة الحكم، وتُستخدم أيضاً
+// لاستعادة نفس الشاشة والسؤال والنتيجة تلقائياً لو صار ريفريش للصفحة)
+function saveGameStateToStorage() {
+    try {
+        const activeScreen = document.querySelector('.screen.active');
+        localStorage.setItem(SYNC_STATE_KEY, JSON.stringify({
+            index: gameState.currentIndex,
+            scoreA: gameState.scoreA,
+            scoreB: gameState.scoreB,
+            teamAName: gameState.teamAName,
+            teamBName: gameState.teamBName,
+            roundQuestionCount: gameState.roundQuestionCount,
+            currentDeck: gameState.deck,
+            optionsShown: gameState.optionsShown,
+            currentScreen: activeScreen ? activeScreen.id : 'startScreen'
+        }));
+    } catch (e) {}
+}
+
+// إرسال أمر من شاشة المتسابقين (مو مستخدم حالياً لكن جاهز لأي توسعة مستقبلية)
+function sendSyncEvent(payload) {
+    try {
+        localStorage.setItem(SYNC_EVENT_KEY, JSON.stringify({ ...payload, ts: Date.now() }));
+    } catch (e) {}
+}
 
 // =========================================================
 // محرك المؤثرات الصوتية التخليقي (Web Audio API Synthesizer)
@@ -293,115 +313,61 @@ function playNextQuestionSound() {
 }
 
 // =========================================================
-// نظام الغرف: إنشاء غرفة جديدة والاشتراك بالتحديثات اللحظية
+// استقبال أوامر التحكيم عبر localStorage (يعمل بين نافذتين/تبويبين
+// مختلفين على نفس المتصفح - بديل BroadcastChannel بدعم أوسع للمتصفحات)
 // =========================================================
-function generateRoomCode() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // بدون أحرف/أرقام ملتبسة (O,0,I,1)
-    let code = '';
-    for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
-    return code;
-}
-
-async function createGameRoom(nameA, nameB, deck) {
-    let data = null;
-    let lastError = null;
-    for (let attempt = 0; attempt < 5 && !data; attempt++) {
-        const code = generateRoomCode();
-        const { data: inserted, error } = await supabaseClient
-            .from('rooms')
-            .insert({
-                room_code: code,
-                team_a_name: nameA,
-                team_b_name: nameB,
-                deck: deck,
-                question_count: deck.length,
-                status: 'active'
-            })
-            .select()
-            .single();
-        if (!error) data = inserted;
-        else {
-            lastError = error;
-            console.warn('محاولة إنشاء غرفة فشلت، إعادة محاولة...', error.message, error);
-        }
+window.addEventListener('storage', (e) => {
+    if (e.key !== SYNC_EVENT_KEY || !e.newValue) return;
+    let data;
+    try {
+        data = JSON.parse(e.newValue);
+    } catch (err) {
+        return;
     }
 
-    if (!data) {
-        console.error('تعذر إنشاء غرفة اللعبة على Supabase - سبب الخطأ:', lastError);
-        const el = document.getElementById('roomCodeDisplay');
-        if (el) el.textContent = 'تعذر الاتصال! افتح Console (F12)';
-        return null;
-    }
+    switch (data.type) {
+        case 'SHOW_OPTIONS':
+            revealOptionsOnScreen();
+            break;
 
-    gameState.roomCode = data.room_code;
-    gameState.roomId = data.id;
-    updateRoomCodeDisplay();
-    subscribeToRoom(data.id);
-    return data;
-}
+        case 'SHOW_HINT':
+            revealHintOnScreen(data.hintText);
+            break;
 
-function updateRoomCodeDisplay() {
-    const el = document.getElementById('roomCodeDisplay');
-    if (el) el.textContent = gameState.roomCode || '—';
-    const judgeLink = document.getElementById('judgeQuickLink');
-    if (judgeLink && gameState.roomCode) {
-        judgeLink.href = `judge.html?room=${gameState.roomCode}`;
-    }
-}
+        case 'HIDE_HINT':
+            hideHintModal();
+            break;
 
-function subscribeToRoom(roomId) {
-    if (gameState.roomChannel) {
-        supabaseClient.removeChannel(gameState.roomChannel);
-    }
-    gameState.roomChannel = supabaseClient
-        .channel('room-updates-' + roomId)
-        .on('postgres_changes', {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'rooms',
-            filter: `id=eq.${roomId}`
-        }, (payload) => {
-            handleRoomUpdate(payload.new, payload.old || {});
-        })
-        .subscribe();
-}
-
-// يستقبل أي تغيير يسويه الحكم من جهازه (لوحة judge.html) ويعكسه على شاشة المتسابقين
-function handleRoomUpdate(row, oldRow) {
-    if (row.score_a !== oldRow.score_a) {
-        gameState.scoreA = row.score_a;
-        document.getElementById('scoreA').textContent = row.score_a;
-    }
-    if (row.score_b !== oldRow.score_b) {
-        gameState.scoreB = row.score_b;
-        document.getElementById('scoreB').textContent = row.score_b;
-    }
-
-    // حدث لحظي: إجابة صحيحة/خاطئة (يتغير مع كل ضغطة حتى لو نفس النوع، بفضل nonce)
-    if (row.last_event && JSON.stringify(row.last_event) !== JSON.stringify(oldRow.last_event)) {
-        if (row.last_event.type === 'correct') {
+        case 'MARK_CORRECT':
             triggerGlowFeedback(true);
             playCorrectSound();
-        } else if (row.last_event.type === 'wrong') {
+            break;
+
+        case 'MARK_WRONG':
             triggerGlowFeedback(false);
             playWrongSound();
-        }
-    }
+            break;
 
-    if (row.current_index !== oldRow.current_index) {
-        loadQuestionByIndex(row.current_index);
-    }
+        case 'NEXT_QUESTION':
+            loadQuestionByIndex(data.index);
+            break;
 
-    if (row.options_shown && !oldRow.options_shown) {
-        gameState.optionsShown = true;
-        revealOptionsOnScreen();
-    }
+        case 'UPDATE_SCORE':
+            gameState.scoreA = data.data.scoreA;
+            gameState.scoreB = data.data.scoreB;
+            document.getElementById('scoreA').textContent = gameState.scoreA;
+            document.getElementById('scoreB').textContent = gameState.scoreB;
+            saveGameStateToStorage();
+            break;
 
-    if (row.hint_nonce !== oldRow.hint_nonce && row.hint_visible) {
-        revealHintOnScreen(row.hint_text);
-    } else if (!row.hint_visible && oldRow.hint_visible) {
-        hideHintModal();
+        case 'JUDGE_CONNECTED':
+            syncStateToJudge();
+            break;
     }
+});
+
+function syncStateToJudge() {
+    saveGameStateToStorage();
 }
 
 // =========================================================
@@ -469,15 +435,6 @@ function startNewGameSession() {
 
     gameState.deck = shuffledQuestions.slice(0, count);
 
-    // إنشاء غرفة اللعبة على Supabase (بالخلفية، بدون تعطيل بدء اللعبة)
-    // -- يطلع كود الغرفة يعرض بأسفل شاشة المتسابقين ويربط زر "لوحة الحكم" تلقائياً
-    gameState.roomCode = null;
-    gameState.roomId = null;
-    updateRoomCodeDisplay();
-    createGameRoom(nameA, nameB, gameState.deck).catch(err => {
-        console.error('خطأ أثناء إنشاء الغرفة:', err);
-    });
-
     // تحديث واجهة العرض للمتسابقين
     document.getElementById('teamADisplay').textContent = nameA;
     document.getElementById('teamBDisplay').textContent = nameB;
@@ -514,6 +471,7 @@ function startNewGameSession() {
             burnoutOverlay.style.display = 'none';
             burnoutOverlay.classList.remove('play-burnout');
         }
+        syncStateToJudge();
         gameState.isTransitioning = false;
     }, 2000); // مدة مسح الكفر (مطابقة لـ --wipe-duration في style.css)
 }
@@ -521,7 +479,9 @@ function startNewGameSession() {
 // =========================================================
 // تحميل وعرض السؤال
 // =========================================================
-function loadQuestionByIndex(index) {
+function loadQuestionByIndex(index, opts) {
+    const silent = !!(opts && opts.silent);
+
     if (!gameState.deck || gameState.deck.length === 0) {
         gameState.deck = questionBank;
     }
@@ -530,19 +490,21 @@ function loadQuestionByIndex(index) {
     if (!q) return;
 
     gameState.currentIndex = index;
-    gameState.hintCount = 0;
-    gameState.optionsShown = false;
+    if (!silent) {
+        gameState.hintCount = 0;
+        gameState.optionsShown = false;
+    }
 
     clearAllGlows();
 
-    // نصوص السؤال والشارات مع نقطتين قبل الخيارات
-    document.getElementById('questionText').textContent = q.question + ' ••';
+    // نصوص السؤال والشارات مع نقطتين قبل الخيارات (أو نقطة وحدة لو الخيارات ظاهرة أصلاً بعد استعادة الحالة)
+    document.getElementById('questionText').textContent = q.question + (gameState.optionsShown ? ' •' : ' ••');
     document.getElementById('currentQ').textContent = index + 1;
     document.getElementById('totalQ').textContent = gameState.deck.length;
     document.getElementById('categoryBadge').textContent = q.category || 'ميكانيكا عامة';
 
     // إخفاء الخيارات مؤقتاً (التلميح أصبح في نافذة منبثقة منفصلة hintModalOverlay)
-    document.getElementById('optionsContainer').style.display = 'none';
+    document.getElementById('optionsContainer').style.display = gameState.optionsShown ? 'grid' : 'none';
     hideHintModal();
 
     // تعبئة نصوص الخيارات الأربعة
@@ -560,10 +522,11 @@ function loadQuestionByIndex(index) {
         }
     });
 
-    // مزامنة مع الحكم (تتم تلقائياً عبر Supabase Realtime عند تغيّر current_index بالغرفة)
+    // مزامنة مع الحكم
+    syncStateToJudge();
 
-    // تشغيل انتقالية الكفر للسؤال التالي (إذا لم تكن أول سؤال)
-    if (index > 0) {
+    // تشغيل انتقالية الكفر للسؤال التالي (إذا لم تكن أول سؤال ولسنا باستعادة صامتة بعد ريفريش)
+    if (!silent && index > 0) {
         playNextQuestionTransition();
     }
 }
@@ -601,6 +564,7 @@ function revealOptionsOnScreen() {
     if (box) {
         box.style.display = 'grid';
     }
+    gameState.optionsShown = true;
 
     // بعد ظهور الخيارات: نقطة وحدة بس بعد نص السؤال (كانت نقطتين قبل الكشف)
     const currentQ = gameState.deck && gameState.deck[gameState.currentIndex];
@@ -610,6 +574,8 @@ function revealOptionsOnScreen() {
 
     // تشغيل صوت الكشف عن الخيارات
     playRevealOptionsSound();
+
+    saveGameStateToStorage();
 }
 
 let hintAutoHideTimeout = null;
@@ -722,18 +688,61 @@ function showSettingsModal() {
 function showAboutModal() {
     showModal(
         'عن أكاديمية تيت للسيارات',
-        'تحدي مسابقات السيارات التفاعلي هو منصة تدريبية لقياس المعرفة الميكانيكية وتشخيص الأعطال.<br><br>• تحكيم مباشر ومزامنة لحظية بين الأجهزة المختلفة عن طريق نظام الغرف (Room Code).<br>• بنك أسئلة متخصص يضم 100 سؤال يغطي المحركات، التيربو، الفرامل، الكهرباء، الهايبرد، والحساسات.<br><br><strong>© جميع الحقوق محفوظة لأكاديمية تيت للسيارات</strong>'
+        'تحدي مسابقات السيارات التفاعلي هو منصة تدريبية لقياس المعرفة الميكانيكية وتشخيص الأعطال.<br><br>• تحكيم مباشر ومزامنة لحظية بين الشاشات عبر BroadcastChannel.<br>• بنك أسئلة متخصص يضم 100 سؤال يغطي المحركات، التيربو، الفرامل، الكهرباء، الهايبرد، والحساسات.<br><br><strong>© جميع الحقوق محفوظة لأكاديمية تيت للسيارات</strong>'
     );
 }
 
 function openJudgePanelDirect() {
-    const url = gameState.roomCode ? `judge.html?room=${gameState.roomCode}` : 'judge.html';
-    window.open(url, '_blank', 'width=1000,height=800');
+    window.open('judge.html', '_blank', 'width=1000,height=800');
+}
+
+// =========================================================
+// استعادة الحالة تلقائياً بعد الريفريش (تُقرأ من نفس مكان الحفظ
+// اللي تستخدمه لوحة الحكم بالضبط)
+// =========================================================
+function restoreStateFromStorage() {
+    let saved;
+    try {
+        const raw = localStorage.getItem(SYNC_STATE_KEY);
+        if (!raw) return false;
+        saved = JSON.parse(raw);
+    } catch (e) {
+        return false;
+    }
+
+    if (!saved || !Array.isArray(saved.currentDeck) || saved.currentDeck.length === 0) {
+        return false;
+    }
+    if (saved.currentScreen !== 'contestantScreen') {
+        return false;
+    }
+
+    gameState.teamAName = saved.teamAName || gameState.teamAName;
+    gameState.teamBName = saved.teamBName || gameState.teamBName;
+    gameState.scoreA = saved.scoreA || 0;
+    gameState.scoreB = saved.scoreB || 0;
+    gameState.roundQuestionCount = saved.roundQuestionCount || gameState.roundQuestionCount;
+    gameState.deck = saved.currentDeck;
+    gameState.optionsShown = !!saved.optionsShown;
+
+    document.getElementById('teamADisplay').textContent = gameState.teamAName;
+    document.getElementById('teamBDisplay').textContent = gameState.teamBName;
+    document.getElementById('scoreA').textContent = gameState.scoreA;
+    document.getElementById('scoreB').textContent = gameState.scoreB;
+    document.getElementById('totalQ').textContent = gameState.deck.length;
+
+    showScreen('contestantScreen');
+    loadQuestionByIndex(saved.index || 0, { silent: true });
+
+    return true;
 }
 
 // تهيئة أولية
 document.addEventListener('DOMContentLoaded', () => {
-    showScreen('startScreen');
+    const restored = restoreStateFromStorage();
+    if (!restored) {
+        showScreen('startScreen');
+    }
     // تهيئة مسبقة لطبقة الصوت
     document.body.addEventListener('click', () => {
         getAudioContext();
