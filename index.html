@@ -144,6 +144,10 @@
             <span class="academy-tag">TiT AUTOMOTIVE ACADEMY</span>
         </div>
         <div class="nav-left">
+            <!-- زر ملء الشاشة (مفيد خصوصاً على اللابتوب) -->
+            <button type="button" class="fullscreen-btn" id="fullscreenToggleBtn" onclick="toggleFullscreen()" title="عرض ملء الشاشة">
+                <span class="fs-icon" id="fullscreenIcon">⛶</span>
+            </button>
             <!-- زر دخول الحكم السريع في الزاوية -->
             <a href="judge.html" target="_blank" class="judge-quick-btn" id="judgeQuickLink" title="فتح لوحة تحكم الحكم">
                 <span class="pulse-dot"></span>
@@ -180,6 +184,18 @@
                 </div>
 
                 <div class="cyber-menu-list">
+                    <!-- شريط تنبيه لاستئناف جولة سابقة لم تكتمل (يظهر فقط لو فيه جولة محفوظة) -->
+                    <div class="resume-session-banner" id="resumeSessionBanner" style="display: none;">
+                        <div class="resume-banner-text">
+                            <strong>فيه جولة سابقة لم تكتمل</strong>
+                            <small>تقدر تكمل من نفس السؤال والنتيجة، أو تبدأ جولة جديدة</small>
+                        </div>
+                        <div class="resume-banner-actions">
+                            <button type="button" class="resume-btn-continue" onclick="resumePreviousSession()">استئناف</button>
+                            <button type="button" class="resume-btn-dismiss" onclick="dismissResumeBanner()">تجاهل</button>
+                        </div>
+                    </div>
+
                     <button class="cyber-btn primary-start" onclick="showTeamSetup()">
                         <div class="btn-glow-bg"></div>
                         <span class="btn-icon">⚡</span>
