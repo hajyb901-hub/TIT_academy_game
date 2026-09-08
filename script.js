@@ -14,14 +14,83 @@ let gameState = {
     roundQuestionCount: 15,
     deck: [], // بنك الأسئلة العشوائي للجولة الحالية
     flashTimeout: null,
-    isTransitioning: false
+    isTransitioning: false,
+    roomCode: null // كود الغرفة الحالي (يُستخدم لمزامنة سوبابيس مع لوحة الحكم)
 };
+
+// =========================================================
+// إعداد Supabase (المزامنة الحقيقية بين شاشة المتسابقين ولوحة
+// الحكم حتى لو كانوا على جهازين مختلفين تماماً - جوال الحكم مثلاً)
+// =========================================================
+const SUPABASE_URL = 'https://ovpjjmohrvmkyaksbjky.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92cGpqbW9ocnZta3lha3Niamt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2ODkxNTAsImV4cCI6MjEwNDI2NTE1MH0.SVI3w25Bvm6LCbuWcKcGcg_G3HvC3aoZbU8GMCx7HdQ';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let roomChannel = null; // قناة الاتصال المباشر (Realtime) الخاصة بالغرفة الحالية
+
+// توليد كود غرفة عشوائي مكوّن من 6 خانات (حروف كبيرة وأرقام واضحة، بدون رموز ملتبسة)
+function generateRoomCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+        code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return code;
+}
+
+// إرسال لقطة الحالة الكاملة إلى صف الغرفة في سوبابيس (تُقرأها لوحة الحكم
+// فوراً عند الاتصال، وتصلها أي تحديثات لاحقة عبر Realtime تلقائياً)
+async function pushRoomStateToSupabase() {
+    if (!gameState.roomCode) return;
+    try {
+        await supabaseClient.from('rooms').upsert({
+            room_code: gameState.roomCode,
+            team_a_name: gameState.teamAName,
+            team_b_name: gameState.teamBName,
+            score_a: gameState.scoreA,
+            score_b: gameState.scoreB,
+            current_index: gameState.currentIndex,
+            deck: gameState.deck,
+            round_question_count: gameState.roundQuestionCount === 'ALL' ? gameState.deck.length : Number(gameState.roundQuestionCount),
+            question_count: gameState.deck.length,
+            options_shown: gameState.optionsShown,
+            status: 'active'
+        }, { onConflict: 'room_code' });
+    } catch (e) {
+        console.warn('تعذّرت مزامنة سوبابيس:', e);
+    }
+}
+
+// الاشتراك في قناة البث المباشر الخاصة بالغرفة لاستقبال أوامر الحكم
+// (نفس فكرة استقبال أوامر الحكم اللي كانت عبر localStorage، بس الحين
+// حقيقية بين أي جهازين عبر الإنترنت)
+function subscribeRoomChannel(code) {
+    if (roomChannel) {
+        supabaseClient.removeChannel(roomChannel);
+        roomChannel = null;
+    }
+    roomChannel = supabaseClient
+        .channel('room-' + code)
+        .on('broadcast', { event: 'judge_action' }, (msg) => {
+            handleJudgeAction(msg.payload);
+        })
+        .subscribe();
+}
+
+// تحديث عرض كود الغرفة ورابط لوحة الحكم السريع بحيث يحمل نفس الكود تلقائياً
+function updateRoomCodeUI() {
+    const roomDisplay = document.getElementById('roomCodeDisplay');
+    if (roomDisplay) roomDisplay.textContent = gameState.roomCode || '—';
+
+    const judgeLink = document.getElementById('judgeQuickLink');
+    if (judgeLink && gameState.roomCode) {
+        judgeLink.setAttribute('href', 'judge.html?room=' + gameState.roomCode);
+    }
+}
 
 // قناة المزامنة والحفظ بين شاشة المتسابقين ولوحة الحكم
 // (localStorage بدل BroadcastChannel لأنها مدعومة في كل المتصفحات تقريباً،
 // ولأنها تعطينا استعادة الحالة تلقائياً بعد الريفريش كنتيجة إضافية)
 const SYNC_STATE_KEY = 'tit_quiz_state_v1';
-const SYNC_EVENT_KEY = 'tit_quiz_event_v1';
 
 // حفظ اللقطة الكاملة للحالة الحالية (تُقرأ من لوحة الحكم، وتُستخدم أيضاً
 // لاستعادة نفس الشاشة والسؤال والنتيجة تلقائياً لو صار ريفريش للصفحة)
@@ -37,15 +106,9 @@ function saveGameStateToStorage() {
             roundQuestionCount: gameState.roundQuestionCount,
             currentDeck: gameState.deck,
             optionsShown: gameState.optionsShown,
+            roomCode: gameState.roomCode,
             currentScreen: activeScreen ? activeScreen.id : 'startScreen'
         }));
-    } catch (e) {}
-}
-
-// إرسال أمر من شاشة المتسابقين (مو مستخدم حالياً لكن جاهز لأي توسعة مستقبلية)
-function sendSyncEvent(payload) {
-    try {
-        localStorage.setItem(SYNC_EVENT_KEY, JSON.stringify({ ...payload, ts: Date.now() }));
     } catch (e) {}
 }
 
@@ -313,17 +376,11 @@ function playNextQuestionSound() {
 }
 
 // =========================================================
-// استقبال أوامر التحكيم عبر localStorage (يعمل بين نافذتين/تبويبين
-// مختلفين على نفس المتصفح - بديل BroadcastChannel بدعم أوسع للمتصفحات)
+// استقبال أوامر التحكيم عبر Supabase Realtime (تعمل بين أي جهازين
+// مختلفين فعلياً — جوال الحكم في مكان، وشاشة العرض في مكان آخر)
 // =========================================================
-window.addEventListener('storage', (e) => {
-    if (e.key !== SYNC_EVENT_KEY || !e.newValue) return;
-    let data;
-    try {
-        data = JSON.parse(e.newValue);
-    } catch (err) {
-        return;
-    }
+function handleJudgeAction(data) {
+    if (!data || !data.type) return;
 
     switch (data.type) {
         case 'SHOW_OPTIONS':
@@ -357,17 +414,18 @@ window.addEventListener('storage', (e) => {
             gameState.scoreB = data.data.scoreB;
             document.getElementById('scoreA').textContent = gameState.scoreA;
             document.getElementById('scoreB').textContent = gameState.scoreB;
-            saveGameStateToStorage();
+            syncStateToJudge();
             break;
 
         case 'JUDGE_CONNECTED':
             syncStateToJudge();
             break;
     }
-});
+}
 
 function syncStateToJudge() {
     saveGameStateToStorage();
+    pushRoomStateToSupabase();
 }
 
 // =========================================================
@@ -426,6 +484,9 @@ function startNewGameSession() {
     gameState.currentIndex = 0;
     gameState.hintCount = 0;
     gameState.optionsShown = false;
+    gameState.roomCode = generateRoomCode();
+    updateRoomCodeUI();
+    subscribeRoomChannel(gameState.roomCode);
 
     // خلط واختيار الأسئلة عشوائياً من البنك الضخم (100 سؤال)
     const shuffledQuestions = shuffleArray(questionBank);
@@ -575,7 +636,7 @@ function revealOptionsOnScreen() {
     // تشغيل صوت الكشف عن الخيارات
     playRevealOptionsSound();
 
-    saveGameStateToStorage();
+    syncStateToJudge();
 }
 
 let hintAutoHideTimeout = null;
@@ -693,29 +754,42 @@ function showAboutModal() {
 }
 
 function openJudgePanelDirect() {
-    window.open('judge.html', '_blank', 'width=1000,height=800');
+    const url = gameState.roomCode ? ('judge.html?room=' + gameState.roomCode) : 'judge.html';
+    window.open(url, '_blank', 'width=1000,height=800');
 }
 
 // =========================================================
-// استعادة الحالة تلقائياً بعد الريفريش (تُقرأ من نفس مكان الحفظ
-// اللي تستخدمه لوحة الحكم بالضبط)
+// استئناف جولة سابقة (اختياري) — الموقع دايمًا يفتح على شاشة البداية،
+// ولو فيه جولة لم تكتمل محفوظة، يظهر شريط تنبيه بس ما يدخلك عليها تلقائياً
 // =========================================================
-function restoreStateFromStorage() {
+let pendingResumeState = null;
+
+function checkForResumableSession() {
     let saved;
     try {
         const raw = localStorage.getItem(SYNC_STATE_KEY);
-        if (!raw) return false;
+        if (!raw) return;
         saved = JSON.parse(raw);
     } catch (e) {
-        return false;
+        return;
     }
 
     if (!saved || !Array.isArray(saved.currentDeck) || saved.currentDeck.length === 0) {
-        return false;
+        return;
     }
     if (saved.currentScreen !== 'contestantScreen') {
-        return false;
+        return;
     }
+
+    pendingResumeState = saved;
+    const banner = document.getElementById('resumeSessionBanner');
+    if (banner) banner.style.display = 'flex';
+}
+
+// يُستدعى فقط لو المستخدم ضغط زر "استئناف" بنفسه
+function resumePreviousSession() {
+    const saved = pendingResumeState;
+    if (!saved) return;
 
     gameState.teamAName = saved.teamAName || gameState.teamAName;
     gameState.teamBName = saved.teamBName || gameState.teamBName;
@@ -724,6 +798,7 @@ function restoreStateFromStorage() {
     gameState.roundQuestionCount = saved.roundQuestionCount || gameState.roundQuestionCount;
     gameState.deck = saved.currentDeck;
     gameState.optionsShown = !!saved.optionsShown;
+    gameState.roomCode = saved.roomCode || null;
 
     document.getElementById('teamADisplay').textContent = gameState.teamAName;
     document.getElementById('teamBDisplay').textContent = gameState.teamBName;
@@ -731,18 +806,56 @@ function restoreStateFromStorage() {
     document.getElementById('scoreB').textContent = gameState.scoreB;
     document.getElementById('totalQ').textContent = gameState.deck.length;
 
+    if (gameState.roomCode) {
+        updateRoomCodeUI();
+        subscribeRoomChannel(gameState.roomCode);
+    }
+
+    const banner = document.getElementById('resumeSessionBanner');
+    if (banner) banner.style.display = 'none';
+
     showScreen('contestantScreen');
     loadQuestionByIndex(saved.index || 0, { silent: true });
-
-    return true;
 }
 
-// تهيئة أولية
-document.addEventListener('DOMContentLoaded', () => {
-    const restored = restoreStateFromStorage();
-    if (!restored) {
-        showScreen('startScreen');
+// المستخدم اختار يتجاهل الجولة القديمة ويبدأ من جديد
+function dismissResumeBanner() {
+    const banner = document.getElementById('resumeSessionBanner');
+    if (banner) banner.style.display = 'none';
+    try {
+        localStorage.removeItem(SYNC_STATE_KEY);
+    } catch (e) {}
+    pendingResumeState = null;
+}
+
+// =========================================================
+// وضع ملء الشاشة (مفيد خصوصاً على اللابتوب)
+// =========================================================
+function toggleFullscreen() {
+    const icon = document.getElementById('fullscreenIcon');
+    if (!document.fullscreenElement) {
+        const el = document.documentElement;
+        const request = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+        if (request) {
+            request.call(el).catch(() => {});
+        }
+    } else {
+        const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+        if (exit) {
+            exit.call(document).catch(() => {});
+        }
     }
+}
+
+document.addEventListener('fullscreenchange', () => {
+    const icon = document.getElementById('fullscreenIcon');
+    if (icon) icon.textContent = document.fullscreenElement ? '⤢' : '⛶';
+});
+
+// تهيئة أولية — الموقع دايمًا يبدأ من شاشة البداية
+document.addEventListener('DOMContentLoaded', () => {
+    showScreen('startScreen');
+    checkForResumableSession();
     // تهيئة مسبقة لطبقة الصوت
     document.body.addEventListener('click', () => {
         getAudioContext();
