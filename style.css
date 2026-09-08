@@ -58,6 +58,22 @@ body {
     position: relative;
 }
 
+/* إخفاء شريط التمرير المرئي أثناء وضع ملء الشاشة فقط، مع إبقاء إمكانية
+   التمرير (سحب باللمس، عجلة الفأرة، لوحة المفاتيح...) شغالة تماماً كالمعتاد.
+   خارج وضع ملء الشاشة يبقى الشريط ظاهر كالعادة. */
+html:fullscreen body,
+html:-webkit-full-screen body,
+html:-ms-fullscreen body {
+    scrollbar-width: none;      /* Firefox */
+    -ms-overflow-style: none;   /* IE / Edge القديم */
+}
+html:fullscreen body::-webkit-scrollbar,
+html:-webkit-full-screen body::-webkit-scrollbar {
+    display: none;              /* Chrome / Safari / Edge الحديث */
+    width: 0;
+    height: 0;
+}
+
 /* =========================================================
    الخلفية التفاعلية والتأثيرات البيئية
    ========================================================= */
