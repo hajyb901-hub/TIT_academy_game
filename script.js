@@ -586,35 +586,8 @@ function loadQuestionByIndex(index, opts) {
     // مزامنة مع الحكم
     syncStateToJudge();
 
-    // تشغيل انتقالية الكفر للسؤال التالي (إذا لم تكن أول سؤال ولسنا باستعادة صامتة بعد ريفريش)
-    if (!silent && index > 0) {
-        playNextQuestionTransition();
-    }
-}
-
-// =========================================================
-// انتقالية الكفر والسؤال التالي
-// =========================================================
-function playNextQuestionTransition() {
-    const burnoutOverlay = document.getElementById('burnoutTransition');
-    if (!burnoutOverlay) return;
-
-    burnoutOverlay.style.display = 'flex';
-    burnoutOverlay.classList.remove('play-burnout');
-
-    // Force reflow
-    void burnoutOverlay.offsetWidth;
-
-    burnoutOverlay.classList.add('play-burnout');
-
-    // تشغيل صوت التفحيط والبريك
-    playTireScreechSound();
-
-    // إخفاء الانتقالية بعد انتهاء الحركة (نفس مدة حركة الكفر/الشارع/الستارة الموحدة)
-    setTimeout(() => {
-        burnoutOverlay.style.display = 'none';
-        burnoutOverlay.classList.remove('play-burnout');
-    }, 2000); // مطابقة لـ --wipe-duration في style.css
+    // ملاحظة: حركة/صوت تفحيط الكفر تُعرض الآن فقط عند بدء اللعبة (startNewGameSession)
+    // ولم تعد تتكرر بين كل سؤال وآخر، بناءً على طلب العميل.
 }
 
 // =========================================================
