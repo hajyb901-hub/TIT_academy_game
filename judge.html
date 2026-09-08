@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Changa:wght@400;600;700;800;900&family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
             --red-neon: #ff1e27;
@@ -384,6 +385,82 @@
             text-align: center;
             margin-top: 5px;
         }
+
+        /* شريط الاتصال بالغرفة */
+        .room-connect-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-glow);
+            border-radius: 12px;
+            padding: 14px 20px;
+            flex-wrap: wrap;
+        }
+        .room-connect-bar label {
+            font-size: 0.9rem;
+            color: var(--text-sub);
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .room-code-input {
+            flex: 1;
+            min-width: 160px;
+            font-family: 'Changa', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-align: center;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            padding: 10px 14px;
+            background: rgba(0, 0, 0, 0.35);
+            border: 1.5px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            color: #fff;
+            outline: none;
+        }
+        .room-code-input:focus { border-color: var(--red-neon); }
+        .room-connect-btn {
+            font-family: 'Tajawal', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 700;
+            padding: 10px 22px;
+            background: var(--red-neon);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .room-connect-btn:hover { background: var(--red-deep); }
+
+        .room-connected-badge {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            border-radius: 12px;
+            padding: 12px 20px;
+            font-size: 0.9rem;
+            flex-wrap: wrap;
+        }
+        .room-connected-badge strong {
+            font-family: 'Changa', sans-serif;
+            letter-spacing: 3px;
+            color: var(--green-neon);
+        }
+        .room-disconnect-btn {
+            margin-right: auto;
+            font-size: 0.8rem;
+            padding: 6px 14px;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 6px;
+            color: var(--text-sub);
+            cursor: pointer;
+        }
+        .room-disconnect-btn:hover { color: #fff; border-color: #fff; }
     </style>
 </head>
 <body>
@@ -393,13 +470,26 @@
             <span style="font-size: 1.5rem;">⚖</span>
             <div class="judge-title">غرفة تحكيم أكاديمية تيت</div>
         </div>
-        <div class="status-badge">
+        <div class="status-badge" id="connectionStatusBadge">
             <span class="live-dot"></span>
-            <span>متصل مباشرة بالشاشة</span>
+            <span>غير متصل بعد</span>
         </div>
     </header>
 
     <div class="judge-container">
+
+        <!-- 0. الاتصال بالغرفة -->
+        <div class="room-connect-bar" id="roomConnectBar">
+            <label>كود الغرفة:</label>
+            <input type="text" id="roomCodeInput" class="room-code-input" placeholder="مثال: F8HQSL" maxlength="8">
+            <button class="room-connect-btn" onclick="connectToRoom()">اتصال بالغرفة</button>
+        </div>
+        <div class="room-connected-badge" id="roomConnectedBadge">
+            <span>متصل بالغرفة رقم:</span>
+            <strong id="connectedRoomCodeText">—</strong>
+            <button class="room-disconnect-btn" onclick="disconnectRoom()">قطع الاتصال</button>
+        </div>
+
 
         <!-- 1. شريط النتائج والفرق -->
         <div class="scoreboard-row">
@@ -494,14 +584,98 @@
 
     <script src="questions.js"></script>
     <script>
-        // نفس آلية المزامنة اللي في script.js (localStorage بدل BroadcastChannel)
-        const SYNC_STATE_KEY = 'tit_quiz_state_v1';
-        const SYNC_EVENT_KEY = 'tit_quiz_event_v1';
+        // =========================================================
+        // الاتصال الحقيقي بغرفة سوبابيس (بدل localStorage) — يشتغل
+        // حتى لو لوحة الحكم على جهاز مختلف تماماً عن شاشة العرض
+        // =========================================================
+        const SUPABASE_URL = 'https://ovpjjmohrvmkyaksbjky.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92cGpqbW9ocnZta3lha3Niamt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2ODkxNTAsImV4cCI6MjEwNDI2NTE1MH0.SVI3w25Bvm6LCbuWcKcGcg_G3HvC3aoZbU8GMCx7HdQ';
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let currentRoomCode = null;
+        let roomChannel = null;
 
         function sendSyncEvent(payload) {
+            if (!currentRoomCode || !roomChannel) {
+                alert('غير متصل بأي غرفة بعد. أدخل كود الغرفة الظاهر أسفل شاشة المتسابقين أولاً.');
+                return;
+            }
+            roomChannel.send({
+                type: 'broadcast',
+                event: 'judge_action',
+                payload: { ...payload, ts: Date.now() }
+            });
+        }
+
+        function getRoomCodeFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            return (params.get('room') || '').trim().toUpperCase();
+        }
+
+        async function connectToRoom(codeOverride) {
+            const input = document.getElementById('roomCodeInput');
+            const code = (codeOverride || (input ? input.value : '') || '').trim().toUpperCase();
+            if (!code) return;
+
+            currentRoomCode = code;
+            if (input) input.value = code;
+
+            // جلب الحالة الحالية فوراً عند الاتصال
             try {
-                localStorage.setItem(SYNC_EVENT_KEY, JSON.stringify({ ...payload, ts: Date.now() }));
+                const { data } = await supabaseClient
+                    .from('rooms')
+                    .select('*')
+                    .eq('room_code', code)
+                    .maybeSingle();
+                if (data) applyRoomRow(data);
             } catch (e) {}
+
+            if (roomChannel) {
+                supabaseClient.removeChannel(roomChannel);
+                roomChannel = null;
+            }
+
+            roomChannel = supabaseClient
+                .channel('room-' + code)
+                .on('postgres_changes', {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'rooms',
+                    filter: `room_code=eq.${code}`
+                }, (payload) => applyRoomRow(payload.new))
+                .subscribe((status) => {
+                    if (status === 'SUBSCRIBED') {
+                        document.getElementById('roomConnectBar').style.display = 'none';
+                        document.getElementById('roomConnectedBadge').style.display = 'flex';
+                        document.getElementById('connectedRoomCodeText').textContent = code;
+                        const badge = document.getElementById('connectionStatusBadge');
+                        badge.querySelector('span:last-child').textContent = 'متصل مباشرة بالغرفة';
+                    }
+                });
+        }
+
+        function disconnectRoom() {
+            if (roomChannel) {
+                supabaseClient.removeChannel(roomChannel);
+                roomChannel = null;
+            }
+            currentRoomCode = null;
+            document.getElementById('roomConnectBar').style.display = 'flex';
+            document.getElementById('roomConnectedBadge').style.display = 'none';
+            const badge = document.getElementById('connectionStatusBadge');
+            badge.querySelector('span:last-child').textContent = 'غير متصل بعد';
+        }
+
+        function applyRoomRow(row) {
+            if (!row) return;
+            judgeState.currentIndex = row.current_index || 0;
+            judgeState.scoreA       = row.score_a || 0;
+            judgeState.scoreB       = row.score_b || 0;
+            judgeState.teamAName    = row.team_a_name || judgeState.teamAName;
+            judgeState.teamBName    = row.team_b_name || judgeState.teamBName;
+            judgeState.currentDeck  = Array.isArray(row.deck) ? row.deck : [];
+            judgeState.optionsShown = !!row.options_shown;
+            updateJudgeView();
         }
 
         let judgeState = {
@@ -516,39 +690,6 @@
             teamBName: 'الفريق الثاني',
             currentDeck: []
         };
-
-        // استقبال التحديثات من الشاشة الرئيسية (تُكتب في localStorage فتصلنا
-        // كحدث 'storage' لأننا في نافذة/تبويب مختلف عن اللي كتبها)
-        window.addEventListener('storage', (e) => {
-            if (e.key !== SYNC_STATE_KEY || !e.newValue) return;
-            applyStateSnapshot(e.newValue);
-        });
-
-        function applyStateSnapshot(raw) {
-            let data;
-            try {
-                data = JSON.parse(raw);
-            } catch (err) {
-                return;
-            }
-            judgeState.currentIndex = data.index || 0;
-            judgeState.scoreA       = data.scoreA || 0;
-            judgeState.scoreB       = data.scoreB || 0;
-            judgeState.teamAName    = data.teamAName || judgeState.teamAName;
-            judgeState.teamBName    = data.teamBName || judgeState.teamBName;
-            judgeState.currentDeck  = data.currentDeck || [];
-            judgeState.optionsShown = !!data.optionsShown;
-            updateJudgeView();
-        }
-
-        // قراءة الحالة الحالية فوراً عند فتح/تحديث صفحة الحكم (يحل مشكلة فقدان
-        // المزامنة لو صار ريفريش للوحة الحكم نفسها)
-        function loadInitialStateFromStorage() {
-            try {
-                const raw = localStorage.getItem(SYNC_STATE_KEY);
-                if (raw) applyStateSnapshot(raw);
-            } catch (e) {}
-        }
 
         function updateJudgeView() {
             // تحديث أسماء الفرق
@@ -710,9 +851,15 @@
             }
         }
 
-        // قراءة الحالة الحالية فوراً عند فتح/تحديث صفحة الحكم
-        loadInitialStateFromStorage();
+        // عرض الحالة الافتراضية، ثم الاتصال التلقائي لو الرابط فيه ?room=كود
+        // (يصير هذا تلقائياً لو فُتحت لوحة الحكم من نفس الجهاز عبر زر "لوحة الحكم")
         updateJudgeView();
+        const urlRoomCode = getRoomCodeFromURL();
+        if (urlRoomCode) {
+            const input = document.getElementById('roomCodeInput');
+            if (input) input.value = urlRoomCode;
+            connectToRoom(urlRoomCode);
+        }
     </script>
 </body>
 </html>
