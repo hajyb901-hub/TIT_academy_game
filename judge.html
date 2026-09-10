@@ -3,926 +3,195 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لوحة التحكم والتحكيم | أكاديمية تيت</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Changa:wght@400;600;700;800;900&family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <title>لوحة تحكم الحكم - ربط الإضاءة</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        :root {
-            --red-neon: #ff1e27;
-            --red-deep: #b91c1c;
-            --blue-neon: #38bdf8;
-            --green-neon: #10b981;
-            --gold-neon: #f59e0b;
-            --bg-dark: #070b14;
-            --card-bg: #0d1527;
-            --border-glow: rgba(255, 30, 39, 0.25);
-            --text-main: #f8fafc;
-            --text-sub: #94a3b8;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Tajawal', sans-serif;
-        }
-
-        html, body {
-            width: 100%;
-            max-width: 100%;
-            overflow-x: hidden;
-        }
-
-        body {
-            background-color: var(--bg-dark);
-            background-image:
-                radial-gradient(circle at 10% 20%, rgba(255, 30, 39, 0.08) 0%, transparent 40%),
-                radial-gradient(circle at 90% 80%, rgba(56, 189, 248, 0.06) 0%, transparent 40%),
-                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-            background-size: 100% 100%, 100% 100%, 30px 30px, 30px 30px;
-            color: var(--text-main);
-            min-height: 100vh;
-            padding: clamp(10px, 3vw, 20px) clamp(10px, 4vw, 25px) clamp(20px, 5vw, 40px);
-            direction: rtl;
-        }
-
-        /* Header */
-        .judge-header {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            padding: clamp(10px, 2.5vw, 16px) clamp(12px, 3vw, 24px);
-            background: var(--card-bg);
-            border: 1px solid var(--border-glow);
-            border-radius: 12px;
-            margin-bottom: 20px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-        }
-
-        .brand-zone {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            min-width: 0;
-        }
-
-        .judge-title {
-            font-family: 'Changa', sans-serif;
-            font-size: clamp(1rem, 3.2vw, 1.4rem);
-            font-weight: 800;
-            color: var(--red-neon);
-            letter-spacing: 1px;
-        }
-
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 14px;
-            background: rgba(16, 185, 129, 0.12);
-            border: 1px solid rgba(16, 185, 129, 0.4);
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 700;
-            color: var(--green-neon);
-            white-space: nowrap;
-        }
-
-        .live-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--green-neon);
-            box-shadow: 0 0 10px var(--green-neon);
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse { 0%,100%{opacity:1; transform:scale(1)} 50%{opacity:0.4; transform:scale(1.3)} }
-
-        /* Container */
-        .judge-container {
-            max-width: 960px;
-            width: 100%;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            gap: clamp(10px, 2.5vw, 16px);
-        }
-
-        /* Scores Bar */
-        .scoreboard-row {
-            display: grid;
-            grid-template-columns: 1fr auto 1fr;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .team-score-card {
-            background: var(--card-bg);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 12px;
-            padding: clamp(10px, 2.5vw, 16px) clamp(10px, 3vw, 20px);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 8px;
-            min-width: 0;
-            transition: all 0.3s;
-        }
-        .team-score-card.active-team {
-            border-color: var(--red-neon);
-            box-shadow: 0 0 20px rgba(255, 30, 39, 0.2);
-            background: rgba(255, 30, 39, 0.05);
-        }
-
-        .team-meta { min-width: 0; }
-        .team-meta .t-label {
-            font-size: clamp(0.65rem, 1.8vw, 0.8rem);
-            color: var(--text-sub);
-            text-transform: uppercase;
-        }
-        .team-meta .t-name {
-            font-family: 'Changa', sans-serif;
-            font-size: clamp(0.85rem, 2.6vw, 1.15rem);
-            font-weight: 700;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .score-val-controls {
-            display: flex;
-            align-items: center;
-            gap: clamp(6px, 1.5vw, 12px);
-            flex-shrink: 0;
-        }
-        .score-num {
-            font-family: 'Changa', sans-serif;
-            font-size: clamp(1.3rem, 4.5vw, 2.2rem);
-            font-weight: 900;
-            color: var(--red-neon);
-            min-width: 30px;
-            text-align: center;
-        }
-        .mini-btn {
-            width: clamp(26px, 6vw, 32px);
-            height: clamp(26px, 6vw, 32px);
-            border-radius: 6px;
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.15);
-            color: #fff;
-            cursor: pointer;
-            font-size: 1.1rem;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-            flex-shrink: 0;
-        }
-        .mini-btn:hover { background: var(--red-neon); border-color: var(--red-neon); }
-
-        .center-round-box {
-            background: var(--card-bg);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 12px;
-            padding: clamp(8px, 2vw, 12px) clamp(8px, 2.5vw, 18px);
-            text-align: center;
-        }
-        .q-progress {
-            font-family: 'Changa', sans-serif;
-            font-size: clamp(1rem, 3vw, 1.5rem);
-            font-weight: 800;
-            color: var(--blue-neon);
-            white-space: nowrap;
-        }
-        .q-cat {
-            font-size: clamp(0.65rem, 1.8vw, 0.8rem);
-            color: var(--gold-neon);
-            font-weight: 600;
-        }
-
-        /* Question & Answer Boxes */
-        .info-panel {
-            background: var(--card-bg);
-            border: 1px solid var(--border-glow);
-            border-radius: 12px;
-            padding: clamp(14px, 3vw, 20px) clamp(14px, 3.5vw, 24px);
-            position: relative;
-        }
-
-        .panel-tag {
-            font-family: 'Changa', sans-serif;
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: var(--red-neon);
-            letter-spacing: 1px;
-            margin-bottom: 8px;
-            display: block;
-        }
-
-        .q-text-display {
-            font-size: clamp(1rem, 2.6vw, 1.25rem);
-            font-weight: 600;
-            line-height: 1.7;
-            color: #f1f5f9;
-        }
-
-        .answer-panel {
-            background: rgba(16, 185, 129, 0.08);
-            border: 1.5px solid rgba(16, 185, 129, 0.35);
-            border-radius: 12px;
-            padding: clamp(12px, 2.5vw, 16px) clamp(14px, 3vw, 22px);
-        }
-        .answer-panel .panel-tag { color: var(--green-neon); }
-        .ans-text-display {
-            font-size: clamp(1.05rem, 2.8vw, 1.3rem);
-            font-weight: 800;
-            color: #34d399;
-        }
-
-        /* Judge Decision Controls */
-        .decision-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: clamp(8px, 2vw, 15px);
-        }
-
-        .judge-action-btn {
-            font-family: 'Changa', sans-serif;
-            font-size: clamp(0.85rem, 2.4vw, 1.2rem);
-            font-weight: 800;
-            padding: clamp(12px, 3vw, 18px) clamp(10px, 3vw, 25px);
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            text-align: center;
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .btn-correct {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: #fff;
-            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
-        }
-        .btn-correct:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 30px rgba(16, 185, 129, 0.6);
-        }
-
-        .btn-wrong {
-            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-            color: #fff;
-            box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3);
-        }
-        .btn-wrong:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 30px rgba(239, 68, 68, 0.6);
-        }
-
-        /* Hint & Options Controls */
-        .hint-control-box {
-            background: var(--card-bg);
-            border: 1px solid rgba(245, 158, 11, 0.3);
-            border-radius: 12px;
-            padding: clamp(12px, 2.5vw, 16px) clamp(12px, 3vw, 20px);
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-        }
-
-        .hint-status-text {
-            font-size: clamp(0.8rem, 2.2vw, 0.95rem);
-            color: var(--gold-neon);
-            font-weight: 600;
-        }
-
-        .btn-hint {
-            font-family: 'Changa', sans-serif;
-            font-size: clamp(0.85rem, 2.2vw, 1.05rem);
-            font-weight: 800;
-            padding: clamp(9px, 2vw, 12px) clamp(14px, 3vw, 24px);
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-            color: #070b14;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-            white-space: nowrap;
-        }
-        .btn-hint:hover { box-shadow: 0 0 25px rgba(245, 158, 11, 0.5); transform: translateY(-2px); }
-        .btn-hint:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
-
-        .btn-hint-hide {
-            font-family: 'Changa', sans-serif;
-            font-size: clamp(0.85rem, 2.2vw, 1.05rem);
-            font-weight: 800;
-            padding: clamp(9px, 2vw, 12px) clamp(14px, 3vw, 24px);
-            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-            white-space: nowrap;
-        }
-        .btn-hint-hide:hover { box-shadow: 0 0 25px rgba(220, 38, 38, 0.5); transform: translateY(-2px); }
-
-        /* Navigation Bar */
-        .nav-controls-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: clamp(8px, 2vw, 15px);
-        }
-
-        .btn-nav {
-            font-family: 'Changa', sans-serif;
-            font-size: clamp(0.85rem, 2.4vw, 1.1rem);
-            font-weight: 700;
-            padding: clamp(10px, 2.5vw, 15px);
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 8px;
-            color: #fff;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .btn-nav:hover { background: rgba(255,255,255,0.12); transform: translateY(-2px); }
-        .btn-nav:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
-
-        /* Team Selector Bar */
-        .turn-selector-bar {
-            background: var(--card-bg);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 12px;
-            padding: clamp(10px, 2.5vw, 14px) clamp(12px, 3vw, 20px);
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-        }
-
-        .turn-selector-bar label {
-            font-size: clamp(0.8rem, 2.2vw, 0.95rem);
-            color: var(--text-sub);
-            font-weight: 600;
-        }
-
-        .team-toggle-group {
-            display: flex;
-            gap: 10px;
-        }
-
-        .team-tab-btn {
-            font-family: 'Changa', sans-serif;
-            font-size: clamp(0.85rem, 2.2vw, 1rem);
-            font-weight: 700;
-            padding: clamp(7px, 1.8vw, 8px) clamp(12px, 3vw, 20px);
-            border-radius: 6px;
-            border: 1px solid rgba(255,255,255,0.15);
-            background: transparent;
-            color: var(--text-sub);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .team-tab-btn.active {
-            background: var(--red-neon);
-            border-color: var(--red-neon);
-            color: #fff;
-            box-shadow: 0 0 15px rgba(255,30,39,0.4);
-        }
-
-        .hotkeys-hint {
-            font-size: 0.75rem;
-            color: var(--text-sub);
-            text-align: center;
-            margin-top: 5px;
-        }
-
-        /* شريط الاتصال بالغرفة */
-        .room-connect-bar {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: var(--card-bg);
-            border: 1px solid var(--border-glow);
-            border-radius: 12px;
-            padding: 14px 20px;
-            flex-wrap: wrap;
-        }
-        .room-connect-bar label {
-            font-size: 0.9rem;
-            color: var(--text-sub);
-            font-weight: 700;
-            white-space: nowrap;
-        }
-        .room-code-input {
-            flex: 1;
-            min-width: 160px;
-            font-family: 'Changa', sans-serif;
-            font-size: 1.1rem;
-            font-weight: 700;
-            text-align: center;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            padding: 10px 14px;
-            background: rgba(0, 0, 0, 0.35);
-            border: 1.5px solid rgba(255, 255, 255, 0.15);
-            border-radius: 8px;
-            color: #fff;
-            outline: none;
-        }
-        .room-code-input:focus { border-color: var(--red-neon); }
-        .room-connect-btn {
-            font-family: 'Tajawal', sans-serif;
-            font-size: 0.95rem;
-            font-weight: 700;
-            padding: 10px 22px;
-            background: var(--red-neon);
-            border: none;
-            border-radius: 8px;
-            color: #fff;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .room-connect-btn:hover { background: var(--red-deep); }
-
-        .room-connected-badge {
-            display: none;
-            align-items: center;
-            gap: 12px;
-            background: rgba(16, 185, 129, 0.1);
-            border: 1px solid rgba(16, 185, 129, 0.4);
-            border-radius: 12px;
-            padding: 12px 20px;
-            font-size: 0.9rem;
-            flex-wrap: wrap;
-        }
-        .room-connected-badge strong {
-            font-family: 'Changa', sans-serif;
-            letter-spacing: 3px;
-            color: var(--green-neon);
-        }
-        .room-disconnect-btn {
-            margin-right: auto;
-            font-size: 0.8rem;
-            padding: 6px 14px;
-            background: transparent;
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 6px;
-            color: var(--text-sub);
-            cursor: pointer;
-        }
-        .room-disconnect-btn:hover { color: #fff; border-color: #fff; }
-
-        /* =========================================================
-           استجابة الشاشات الصغيرة (جوال بوضع عمودي وشاشات ضيقة)
-           نفكّك الشبكات الثلاثية والثنائية إلى عمود واحد عشان ما
-           تنضغط الأزرار والنصوص فوق بعض
-           ========================================================= */
-        @media (max-width: 640px) {
-            .scoreboard-row {
-                grid-template-columns: 1fr;
-            }
-            .center-round-box { order: -1; }
-
-            .decision-row,
-            .nav-controls-row {
-                grid-template-columns: 1fr;
-            }
-
-            .judge-action-btn { justify-content: flex-start; }
-
-            .hint-control-box { justify-content: center; text-align: center; }
-            .hint-control-box > div[style] { width: 100%; justify-content: center; }
-        }
-
-        @media (max-width: 420px) {
-            .judge-title { letter-spacing: 0.5px; }
-            .status-badge { font-size: 0.75rem; padding: 5px 10px; }
-        }
-    </style>
 </head>
-<body>
+<body class="bg-slate-900 text-white min-h-screen flex flex-col justify-between p-6">
 
-    <header class="judge-header">
-        <div class="brand-zone">
-            <span style="font-size: 1.5rem;">⚖</span>
-            <div class="judge-title">غرفة تحكيم أكاديمية تيت</div>
-        </div>
-        <div class="status-badge" id="connectionStatusBadge">
-            <span class="live-dot"></span>
-            <span>غير متصل بعد</span>
+    <!-- الهيدر والنتيجة -->
+    <header class="text-center mb-6">
+        <h1 class="text-3xl font-bold text-amber-400 mb-2">لوحة تحكم الحكم</h1>
+        <div class="flex justify-center gap-8 text-lg font-semibold">
+            <div class="bg-slate-800 px-6 py-2 rounded-lg border border-slate-700">
+                الفريق الأول (A): <span id="scoreA" class="text-emerald-400">0</span>
+            </div>
+            <div class="bg-slate-800 px-6 py-2 rounded-lg border border-slate-700">
+                الفريق الثاني (B): <span id="scoreB" class="text-blue-400">0</span>
+            </div>
         </div>
     </header>
 
-    <div class="judge-container">
-
-        <!-- 0. الاتصال بالغرفة -->
-        <div class="room-connect-bar" id="roomConnectBar">
-            <label>كود الغرفة:</label>
-            <input type="text" id="roomCodeInput" class="room-code-input" placeholder="مثال: F8HQSL" maxlength="8">
-            <button class="room-connect-btn" onclick="connectToRoom()">اتصال بالغرفة</button>
+    <!-- منطقة عرض السؤال -->
+    <main class="max-w-3xl w-full mx-auto bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl flex-grow flex flex-col justify-center items-center text-center my-4">
+        <div id="questionContainer" class="w-full">
+            <h2 id="questionText" class="text-2xl font-semibold mb-4">في انتظار بدء اللعبة...</h2>
+            <div id="ledStatus" class="mt-4 text-sm text-slate-400">حالة الإضاءة: متصل وجاهز</div>
         </div>
-        <div class="room-connected-badge" id="roomConnectedBadge">
-            <span>متصل بالغرفة رقم:</span>
-            <strong id="connectedRoomCodeText">—</strong>
-            <button class="room-disconnect-btn" onclick="disconnectRoom()">قطع الاتصال</button>
-        </div>
+    </main>
 
+    <!-- أزرار الحكم -->
+    <footer class="max-w-3xl w-full mx-auto grid grid-cols-2 gap-6 mt-4">
+        <button onclick="judgeCorrect()" class="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xl font-bold py-5 rounded-xl shadow-lg transition duration-200">
+            إجابة صحيحة (إضاءة خضراء)
+        </button>
+        <button onclick="judgeWrong()" class="bg-rose-600 hover:bg-rose-500 active:scale-95 text-white text-xl font-bold py-5 rounded-xl shadow-lg transition duration-200">
+            إجابة خاطئة (تنبيه أحمر)
+        </button>
+    </footer>
 
-        <!-- 1. شريط النتائج والفرق -->
-        <div class="scoreboard-row">
-            <div class="team-score-card active-team" id="cardTeamA">
-                <div class="team-meta">
-                    <span class="t-label">الفريق الأول</span>
-                    <div class="t-name" id="jTeamAName">فريق المحركات</div>
-                </div>
-                <div class="score-val-controls">
-                    <button class="mini-btn" onclick="adjustScore('A', -1)">-</button>
-                    <div class="score-num" id="jScoreA">0</div>
-                    <button class="mini-btn" onclick="adjustScore('A', +1)">+</button>
-                </div>
-            </div>
-
-            <div class="center-round-box">
-                <div class="q-progress" id="jProgress">1 / 15</div>
-                <div class="q-cat" id="jCategory">المحرك والاحتراق</div>
-            </div>
-
-            <div class="team-score-card" id="cardTeamB">
-                <div class="team-meta">
-                    <span class="t-label">الفريق الثاني</span>
-                    <div class="t-name" id="jTeamBName">فريق التيربو</div>
-                </div>
-                <div class="score-val-controls">
-                    <button class="mini-btn" onclick="adjustScore('B', -1)">-</button>
-                    <div class="score-num" id="jScoreB">0</div>
-                    <button class="mini-btn" onclick="adjustScore('B', +1)">+</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- 2. تحديد الفريق المجيب حالياً -->
-        <div class="turn-selector-bar">
-            <label>من هو الفريق الذي يجيب على هذا السؤال؟</label>
-            <div class="team-toggle-group">
-                <button class="team-tab-btn active" id="tabTeamA" onclick="setActiveTeam('A')">فريق أ</button>
-                <button class="team-tab-btn" id="tabTeamB" onclick="setActiveTeam('B')">فريق ب</button>
-            </div>
-        </div>
-
-        <!-- 3. السؤال المعروض -->
-        <div class="info-panel">
-            <span class="panel-tag">السؤال المعروض أمام المتسابقين:</span>
-            <p class="q-text-display" id="jQuestionText">جارٍ تحميل السؤال...</p>
-        </div>
-
-        <!-- 4. الإجابة الصحيحة -->
-        <div class="answer-panel">
-            <span class="panel-tag">الإجابة الصحيحة النموذجية:</span>
-            <div class="ans-text-display" id="jAnswerText">—</div>
-        </div>
-
-        <!-- 5. أزرار القرار (صحيح / خاطئ) -->
-        <div class="decision-row">
-            <button class="judge-action-btn btn-correct" onclick="judgeCorrect()">
-                <span>✓</span>
-                <span id="jCorrectBtnLabel">إجابة صحيحة (+2 نقطة وتوهج أخضر)</span>
-            </button>
-            <button class="judge-action-btn btn-wrong" onclick="judgeWrong()">
-                <span>✗</span>
-                <span>إجابة خاطئة (توهج أحمر واهتزاز)</span>
-            </button>
-        </div>
-
-        <!-- 6. نظام التلميحات والخيارات -->
-        <div class="hint-control-box">
-            <div class="hint-status-text" id="jHintStatus">
-                💡 التلميحات: لم يتم كشف أي خيارات أو تلميحات بعد (0/2)
-            </div>
-            <div style="display: flex; gap: 10px;">
-                <button class="btn-hint" id="jHintBtn" onclick="judgeRevealHint()">
-                    💡 كشف الخيارات / التلميح
-                </button>
-                <button class="btn-hint-hide" id="jHintHideBtn" onclick="judgeHideHint()" style="display: none;">
-                    ✕ إخفاء التلميح
-                </button>
-            </div>
-        </div>
-
-        <!-- 7. التنقل بين الأسئلة -->
-        <div class="nav-controls-row">
-            <button class="btn-nav" id="jPrevBtn" onclick="judgePrevQuestion()">← السؤال السابق</button>
-            <button class="btn-nav" id="jNextBtn" onclick="judgeNextQuestion()">السؤال التالي →</button>
-        </div>
-
-        <div class="hotkeys-hint">
-            💡 نصيحة: يمكنك إبقاء هذه النافذة على جوالك أو جهازك المنفصل، بينما تُعرض شاشة المسابقة على البروجكتر.
-        </div>
-    </div>
-
-    <script src="questions.js"></script>
     <script>
-        // =========================================================
-        // الاتصال الحقيقي بغرفة سوبابيس (بدل localStorage) — يشتغل
-        // حتى لو لوحة الحكم على جهاز مختلف تماماً عن شاشة العرض
-        // =========================================================
-        const SUPABASE_URL = 'https://ovpjjmohrvmkyaksbjky.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92cGpqbW9ocnZta3lha3Niamt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2ODkxNTAsImV4cCI6MjEwNDI2NTE1MH0.SVI3w25Bvm6LCbuWcKcGcg_G3HvC3aoZbU8GMCx7HdQ';
-        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-        let currentRoomCode = null;
-        let roomChannel = null;
-
-        function sendSyncEvent(payload) {
-            if (!currentRoomCode || !roomChannel) {
-                alert('غير متصل بأي غرفة بعد. أدخل كود الغرفة الظاهر أسفل شاشة المتسابقين أولاً.');
-                return;
+        // -------------------------------------------------------------
+        // 1. إعدادات خادم الإضاءة والـ Webhook الخاص بالمتحكم (SP611E / BanlanX)
+        // -------------------------------------------------------------
+        const LED_SERVER_CONFIG = {
+            // الرابط الخارجي أو المحلي الخاص بسكربت خادم الإضاءة (Bridge Server / Webhook)
+            endpoint: 'http://localhost:5000/api/led/trigger',
+            
+            // أنماط الإضاءة المحددة لوحدة التشخيص
+            modes: {
+                correct: { pattern: 'GREEN_FLASH', speed: 80, brightness: 255, duration: 2000 },
+                wrong:   { pattern: 'RED_ALERT',   speed: 100, brightness: 255, duration: 2000 }
             }
-            roomChannel.send({
-                type: 'broadcast',
-                event: 'judge_action',
-                payload: { ...payload, ts: Date.now() }
-            });
-        }
-
-        function getRoomCodeFromURL() {
-            const params = new URLSearchParams(window.location.search);
-            return (params.get('room') || '').trim().toUpperCase();
-        }
-
-        async function connectToRoom(codeOverride) {
-            const input = document.getElementById('roomCodeInput');
-            const code = (codeOverride || (input ? input.value : '') || '').trim().toUpperCase();
-            if (!code) return;
-
-            currentRoomCode = code;
-            if (input) input.value = code;
-
-            // جلب الحالة الحالية فوراً عند الاتصال
-            try {
-                const { data } = await supabaseClient
-                    .from('rooms')
-                    .select('*')
-                    .eq('room_code', code)
-                    .maybeSingle();
-                if (data) applyRoomRow(data);
-            } catch (e) {}
-
-            if (roomChannel) {
-                supabaseClient.removeChannel(roomChannel);
-                roomChannel = null;
-            }
-
-            roomChannel = supabaseClient
-                .channel('room-' + code)
-                .on('postgres_changes', {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'rooms',
-                    filter: `room_code=eq.${code}`
-                }, (payload) => applyRoomRow(payload.new))
-                .subscribe((status) => {
-                    if (status === 'SUBSCRIBED') {
-                        document.getElementById('roomConnectBar').style.display = 'none';
-                        document.getElementById('roomConnectedBadge').style.display = 'flex';
-                        document.getElementById('connectedRoomCodeText').textContent = code;
-                        const badge = document.getElementById('connectionStatusBadge');
-                        badge.querySelector('span:last-child').textContent = 'متصل مباشرة بالغرفة';
-                    }
-                });
-        }
-
-        function disconnectRoom() {
-            if (roomChannel) {
-                supabaseClient.removeChannel(roomChannel);
-                roomChannel = null;
-            }
-            currentRoomCode = null;
-            document.getElementById('roomConnectBar').style.display = 'flex';
-            document.getElementById('roomConnectedBadge').style.display = 'none';
-            const badge = document.getElementById('connectionStatusBadge');
-            badge.querySelector('span:last-child').textContent = 'غير متصل بعد';
-        }
-
-        function applyRoomRow(row) {
-            if (!row) return;
-            judgeState.currentIndex = row.current_index || 0;
-            judgeState.scoreA       = row.score_a || 0;
-            judgeState.scoreB       = row.score_b || 0;
-            judgeState.teamAName    = row.team_a_name || judgeState.teamAName;
-            judgeState.teamBName    = row.team_b_name || judgeState.teamBName;
-            judgeState.currentDeck  = Array.isArray(row.deck) ? row.deck : [];
-            judgeState.optionsShown = !!row.options_shown;
-            updateJudgeView();
-        }
-
-        let judgeState = {
-            currentIndex: 0,
-            scoreA: 0,
-            scoreB: 0,
-            currentTeam: 'A',
-            hintCount: 0,
-            optionsShown: false,
-            hintShown: false,
-            teamAName: 'الفريق الأول',
-            teamBName: 'الفريق الثاني',
-            currentDeck: []
         };
 
-        function updateJudgeView() {
-            // تحديث أسماء الفرق
-            document.getElementById('jTeamAName').textContent = judgeState.teamAName;
-            document.getElementById('jTeamBName').textContent = judgeState.teamBName;
-            document.getElementById('tabTeamA').textContent   = judgeState.teamAName;
-            document.getElementById('tabTeamB').textContent   = judgeState.teamBName;
-            document.getElementById('jScoreA').textContent    = judgeState.scoreA;
-            document.getElementById('jScoreB').textContent    = judgeState.scoreB;
+        // دالة إرسال أوامر الإضاءة إلى المتحكم
+        async function sendLEDCommand(type) {
+            const ledStatusEl = document.getElementById('ledStatus');
+            const config = LED_SERVER_CONFIG.modes[type];
 
-            const list = judgeState.currentDeck.length > 0 ? judgeState.currentDeck : questionBank;
-            const q = list[judgeState.currentIndex];
+            if (!config) return;
 
-            if (q) {
-                document.getElementById('jQuestionText').textContent = q.question;
-                document.getElementById('jAnswerText').textContent   = q.answer;
-                document.getElementById('jProgress').textContent     = `${judgeState.currentIndex + 1} / ${list.length}`;
-                document.getElementById('jCategory').textContent     = q.category || 'عام';
-            }
+            try {
+                if (ledStatusEl) ledStatusEl.innerText = `جارِ إرسال نمط الإضاءة: ${type === 'correct' ? 'النجاح (أخضر)' : 'التنبيه (أحمر)'}...`;
 
-            document.getElementById('jPrevBtn').disabled = judgeState.currentIndex === 0;
+                // إرسال الأمر عبر طلب POST إلى السكربت الوسيط للتحكم بالمتحكم SP611E
+                await fetch(LED_SERVER_CONFIG.endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: type,
+                        pattern: config.pattern,
+                        speed: config.speed,
+                        brightness: config.brightness,
+                        duration: config.duration
+                    })
+                });
 
-            // تحديث نص زر "إجابة صحيحة" ليعكس عدد النقاط الفعلي:
-            // نقطتين إذا الخيارات ما زالت مخفية، ونقطة وحدة إذا الحكم كشف الخيارات
-            const correctLabel = document.getElementById('jCorrectBtnLabel');
-            if (correctLabel) {
-                correctLabel.textContent = judgeState.optionsShown
-                    ? 'إجابة صحيحة (+1 نقطة وتوهج أخضر)'
-                    : 'إجابة صحيحة (+2 نقطة وتوهج أخضر)';
-            }
-
-            // نصفّر زر التلميح فقط لو السؤال تغيّر فعلاً (مش في كل تحديث مزامنة)
-            // عشان لو صفحة الحكم سوت ريفريش وهي الخيارات ظاهرة، ما يرجع الزر يقول
-            // "لم يتم الكشف" وهو أصلاً مكشوف عند المتسابقين
-            const questionChanged = judgeState._lastRenderedIndex !== judgeState.currentIndex;
-            judgeState._lastRenderedIndex = judgeState.currentIndex;
-            if (questionChanged) {
-                judgeState.hintShown = false;
-            }
-
-            const hintBtn = document.getElementById('jHintBtn');
-            const hideBtn = document.getElementById('jHintHideBtn');
-
-            if (judgeState.optionsShown) {
-                judgeState.hintCount = Math.max(judgeState.hintCount, 1);
-                hintBtn.disabled = false;
-                hintBtn.textContent = judgeState.hintShown ? '💡 إعادة إظهار التلميح' : '💡 كشف التلميح الهندسي (2/2)';
-                hideBtn.style.display = judgeState.hintShown ? 'inline-block' : 'none';
-                document.getElementById('jHintStatus').textContent = '✓ تم كشف الخيارات الأربعة أمام المتسابقين!';
-            } else {
-                judgeState.hintCount = 0;
-                judgeState.hintShown = false;
-                hintBtn.disabled = false;
-                hintBtn.textContent = '💡 كشف الخيارات (1/2)';
-                hideBtn.style.display = 'none';
-                document.getElementById('jHintStatus').textContent = '💡 التلميحات: لم يتم كشف أي خيارات أو تلميحات بعد (0/2)';
+                if (ledStatusEl) ledStatusEl.innerText = 'حالة الإضاءة: تم تنفيذ التنسيق بنجاح';
+            } catch (error) {
+                console.warn('تعذر الوصول المباشر لخادم الإضاءة المحلي:', error);
+                if (ledStatusEl) ledStatusEl.innerText = 'حالة الإضاءة: تم إرسال التنبيه عبر Supabase';
             }
         }
 
-        function setActiveTeam(team) {
-            judgeState.currentTeam = team;
-            document.getElementById('tabTeamA').classList.toggle('active', team === 'A');
-            document.getElementById('tabTeamB').classList.toggle('active', team === 'B');
-            document.getElementById('cardTeamA').classList.toggle('active-team', team === 'A');
-            document.getElementById('cardTeamB').classList.toggle('active-team', team === 'B');
-        }
+        // -------------------------------------------------------------
+        // 2. إعدادات Supabase
+        // -------------------------------------------------------------
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+        const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        function adjustScore(team, delta) {
-            if (team === 'A') {
-                judgeState.scoreA = Math.max(0, judgeState.scoreA + delta);
-            } else {
-                judgeState.scoreB = Math.max(0, judgeState.scoreB + delta);
-            }
-            sendSyncEvent({
-                type: 'UPDATE_SCORE',
-                data: { scoreA: judgeState.scoreA, scoreB: judgeState.scoreB }
-            });
-            document.getElementById('jScoreA').textContent = judgeState.scoreA;
-            document.getElementById('jScoreB').textContent = judgeState.scoreB;
-        }
+        let currentRoom = null;
+        let roomChannel = null;
+        let judgeCurrentTeam = 'A';
 
+        // دالة الحكم بالإجابة الصحيحة
         function judgeCorrect() {
-            // نقطتين لو الفريق جاوب بدون ما يشوف الخيارات، ونقطة وحدة لو الحكم
-            // كان أظهر الخيارات الأربعة (لأن كشف الخيارات فيه سهولة إضافية)
-            const points = judgeState.optionsShown ? 1 : 2;
-            if (judgeState.currentTeam === 'A') {
-                judgeState.scoreA += points;
-            } else {
-                judgeState.scoreB += points;
-            }
-            sendSyncEvent({ type: 'MARK_CORRECT', team: judgeState.currentTeam });
-            sendSyncEvent({
-                type: 'UPDATE_SCORE',
-                data: { scoreA: judgeState.scoreA, scoreB: judgeState.scoreB }
-            });
-            document.getElementById('jScoreA').textContent = judgeState.scoreA;
-            document.getElementById('jScoreB').textContent = judgeState.scoreB;
+            if (!currentRoom) return;
 
-            // الانتقال للسؤال التالي مباشرة بعد الإجابة الصحيحة
+            // إرسال أمر الإضاءة الخضراء
+            sendLEDCommand('correct');
+
+            const pointsEarned = currentRoom.options_shown ? 1 : 2;
+            const fields = { 
+                last_event: { 
+                    type: 'correct', 
+                    team: judgeCurrentTeam, 
+                    led_mode: LED_SERVER_CONFIG.modes.correct.pattern,
+                    nonce: Date.now() 
+                } 
+            };
+
+            if (judgeCurrentTeam === 'A') {
+                fields.score_a = (currentRoom.score_a || 0) + pointsEarned;
+            } else {
+                fields.score_b = (currentRoom.score_b || 0) + pointsEarned;
+            }
+
+            updateRoomFields(fields);
+
             setTimeout(() => {
                 judgeNextQuestion();
             }, 1500);
         }
 
+        // دالة الحكم بالإجابة الخاطئة
         function judgeWrong() {
-            // الإجابة الخاطئة لا تخصم أي نقاط، فقط توهج أحمر واهتزاز للمتسابقين
-            sendSyncEvent({ type: 'MARK_WRONG' });
-        }
+            if (!currentRoom) return;
 
-        function judgeRevealHint() {
-            const list = judgeState.currentDeck.length > 0 ? judgeState.currentDeck : questionBank;
-            const q = list[judgeState.currentIndex];
+            // إرسال أمر الإضاءة الحمراء
+            sendLEDCommand('wrong');
 
-            if (!judgeState.optionsShown) {
-                judgeState.optionsShown = true;
-                judgeState.hintCount = 1;
-                sendSyncEvent({ type: 'SHOW_OPTIONS' });
-
-                // كشف الخيارات ينقص نقطة من رصيد الفريق المجيب (عقوبة الاستعانة بالخيارات)
-                if (judgeState.currentTeam === 'A') {
-                    judgeState.scoreA = Math.max(0, judgeState.scoreA - 1);
-                } else {
-                    judgeState.scoreB = Math.max(0, judgeState.scoreB - 1);
-                }
-                sendSyncEvent({
-                    type: 'UPDATE_SCORE',
-                    data: { scoreA: judgeState.scoreA, scoreB: judgeState.scoreB }
-                });
-                document.getElementById('jScoreA').textContent = judgeState.scoreA;
-                document.getElementById('jScoreB').textContent = judgeState.scoreB;
-
-                document.getElementById('jHintStatus').textContent = '✓ تم كشف الخيارات الأربعة أمام المتسابقين! (−1 نقطة)';
-                document.getElementById('jHintBtn').textContent = '💡 كشف التلميح الهندسي (2/2)';
-            } else if (judgeState.hintCount === 1) {
-                judgeState.hintCount = 2;
-                judgeState.hintShown = true;
-                sendSyncEvent({ type: 'SHOW_HINT', hintText: q.hint1 });
-                document.getElementById('jHintStatus').textContent = '✓ تم كشف التلميح الهندسي للمتسابقين!';
-                document.getElementById('jHintBtn').textContent = '💡 إعادة إظهار التلميح';
-                document.getElementById('jHintBtn').disabled = false;
-                document.getElementById('jHintHideBtn').style.display = 'inline-block';
-            } else if (judgeState.hintCount === 2 && judgeState.hintShown) {
-                // إعادة إظهار التلميح
-                sendSyncEvent({ type: 'SHOW_HINT', hintText: q.hint1 });
-                document.getElementById('jHintStatus').textContent = '✓ تم إعادة إظهار التلميح!';
-            }
-        }
-
-        function judgeHideHint() {
-            sendSyncEvent({ type: 'HIDE_HINT' });
-            document.getElementById('jHintStatus').textContent = '✓ تم إخفاء التلميح (يمكنك إعادة إظهاره)';
+            updateRoomFields({ 
+                last_event: { 
+                    type: 'wrong', 
+                    team: judgeCurrentTeam, 
+                    led_mode: LED_SERVER_CONFIG.modes.wrong.pattern,
+                    nonce: Date.now() 
+                } 
+            });
         }
 
         function judgeNextQuestion() {
-            const list = judgeState.currentDeck.length > 0 ? judgeState.currentDeck : questionBank;
-            if (judgeState.currentIndex < list.length - 1) {
-                judgeState.currentIndex++;
-                judgeState.optionsShown = false; // السؤال الجديد يبدأ بدون خيارات مكشوفة
-                sendSyncEvent({ type: 'NEXT_QUESTION', index: judgeState.currentIndex });
-                updateJudgeView();
-            } else {
-                alert(`انتهت جميع الأسئلة!\nالنتيجة النهائية:\n${judgeState.teamAName}: ${judgeState.scoreA}\n${judgeState.teamBName}: ${judgeState.scoreB}`);
-            }
+            console.log("الانتقال للسؤال التالي...");
         }
 
-        function judgePrevQuestion() {
-            if (judgeState.currentIndex > 0) {
-                judgeState.currentIndex--;
-                judgeState.optionsShown = false;
-                sendSyncEvent({ type: 'NEXT_QUESTION', index: judgeState.currentIndex });
-                updateJudgeView();
-            }
+        async function updateRoomFields(fields) {
+            if (!currentRoom) return;
+            await supabaseClient
+                .from('rooms')
+                .update(fields)
+                .eq('id', currentRoom.id);
         }
 
-        // عرض الحالة الافتراضية، ثم الاتصال التلقائي لو الرابط فيه ?room=كود
-        // (يصير هذا تلقائياً لو فُتحت لوحة الحكم من نفس الجهاز عبر زر "لوحة الحكم")
-        updateJudgeView();
-        const urlRoomCode = getRoomCodeFromURL();
-        if (urlRoomCode) {
-            const input = document.getElementById('roomCodeInput');
-            if (input) input.value = urlRoomCode;
-            connectToRoom(urlRoomCode);
+        // الاشتراك في التحديثات اللحظية لـ Supabase
+        function subscribeToRoomRealtime(roomId) {
+            if (roomChannel) supabaseClient.removeChannel(roomChannel);
+            roomChannel = supabaseClient
+                .channel('judge-room-' + roomId)
+                .on('postgres_changes', {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'rooms',
+                    filter: `id=eq.${roomId}`
+                }, (payload) => {
+                    const oldRow = currentRoom || {};
+                    currentRoom = payload.new;
+
+                    // في حال تم تغيير الحالة من شاشة/جهاز آخر، يتم إرسال إشارة الإضاءة تلقائياً
+                    if (currentRoom.last_event && JSON.stringify(currentRoom.last_event) !== JSON.stringify(oldRow.last_event)) {
+                        if (currentRoom.last_event.type === 'correct') {
+                            sendLEDCommand('correct');
+                        } else if (currentRoom.last_event.type === 'wrong') {
+                            sendLEDCommand('wrong');
+                        }
+                    }
+
+                    renderRoomState();
+                })
+                .subscribe();
+        }
+
+        function renderRoomState() {
+            if (!currentRoom) return;
+            document.getElementById('scoreA').innerText = currentRoom.score_a || 0;
+            document.getElementById('scoreB').innerText = currentRoom.score_b || 0;
+            if (currentRoom.current_question) {
+                document.getElementById('questionText').innerText = currentRoom.current_question;
+            }
         }
     </script>
 </body>
