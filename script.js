@@ -823,6 +823,9 @@ function toggleFullscreen() {
 document.addEventListener('fullscreenchange', () => {
     const icon = document.getElementById('fullscreenIcon');
     if (icon) icon.textContent = document.fullscreenElement ? '⤢' : '⛶';
+    // نضيف/نشيل كلاس على <html> كبديل أوثق من :fullscreen لإخفاء
+    // شريط التمرير (بعض المتصفحات لا تطبّق pseudo-class :fullscreen بشكل موثوق)
+    document.documentElement.classList.toggle('is-fullscreen', !!document.fullscreenElement);
 });
 
 // تهيئة أولية — الموقع دايمًا يبدأ من شاشة البداية
