@@ -599,7 +599,7 @@
         <div class="decision-row">
             <button class="judge-action-btn btn-correct" onclick="judgeCorrect()">
                 <span>✓</span>
-                <span>إجابة صحيحة (+1 نقطة وتوهج أخضر)</span>
+                <span id="jCorrectBtnLabel">إجابة صحيحة (+2 نقطة وتوهج أخضر)</span>
             </button>
             <button class="judge-action-btn btn-wrong" onclick="judgeWrong()">
                 <span>✗</span>
@@ -763,6 +763,15 @@
 
             document.getElementById('jPrevBtn').disabled = judgeState.currentIndex === 0;
 
+            // تحديث نص زر "إجابة صحيحة" ليعكس عدد النقاط الفعلي:
+            // نقطتين إذا الخيارات ما زالت مخفية، ونقطة وحدة إذا الحكم كشف الخيارات
+            const correctLabel = document.getElementById('jCorrectBtnLabel');
+            if (correctLabel) {
+                correctLabel.textContent = judgeState.optionsShown
+                    ? 'إجابة صحيحة (+1 نقطة وتوهج أخضر)'
+                    : 'إجابة صحيحة (+2 نقطة وتوهج أخضر)';
+            }
+
             // نصفّر زر التلميح فقط لو السؤال تغيّر فعلاً (مش في كل تحديث مزامنة)
             // عشان لو صفحة الحكم سوت ريفريش وهي الخيارات ظاهرة، ما يرجع الزر يقول
             // "لم يتم الكشف" وهو أصلاً مكشوف عند المتسابقين
@@ -814,10 +823,13 @@
         }
 
         function judgeCorrect() {
+            // نقطتين لو الفريق جاوب بدون ما يشوف الخيارات، ونقطة وحدة لو الحكم
+            // كان أظهر الخيارات الأربعة (لأن كشف الخيارات فيه سهولة إضافية)
+            const points = judgeState.optionsShown ? 1 : 2;
             if (judgeState.currentTeam === 'A') {
-                judgeState.scoreA++;
+                judgeState.scoreA += points;
             } else {
-                judgeState.scoreB++;
+                judgeState.scoreB += points;
             }
             sendSyncEvent({ type: 'MARK_CORRECT', team: judgeState.currentTeam });
             sendSyncEvent({
@@ -834,6 +846,7 @@
         }
 
         function judgeWrong() {
+            // الإجابة الخاطئة لا تخصم أي نقاط، فقط توهج أحمر واهتزاز للمتسابقين
             sendSyncEvent({ type: 'MARK_WRONG' });
         }
 
