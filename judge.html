@@ -845,9 +845,23 @@
             }, 1500);
         }
 
+        function isOnLastQuestion() {
+            const list = judgeState.currentDeck.length > 0 ? judgeState.currentDeck : questionBank;
+            return judgeState.currentIndex >= list.length - 1;
+        }
+
         function judgeWrong() {
             // الإجابة الخاطئة لا تخصم أي نقاط، فقط توهج أحمر واهتزاز للمتسابقين
             sendSyncEvent({ type: 'MARK_WRONG' });
+
+            // لو كان هذا آخر سؤال في الجولة: ما فيه سؤال تالي أصلاً، فننهي
+            // المسابقة وننقل شاشة الأسئلة مباشرة لشاشة الفائز (بدون أي تنقّل
+            // بلوحة الحكم نفسها - فقط بانر تأكيد بسيط هنا)
+            if (isOnLastQuestion()) {
+                setTimeout(() => {
+                    judgeNextQuestion();
+                }, 1200);
+            }
         }
 
         function judgeRevealHint() {
