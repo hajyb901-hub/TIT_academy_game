@@ -420,7 +420,108 @@ function handleJudgeAction(data) {
         case 'JUDGE_CONNECTED':
             syncStateToJudge();
             break;
+
+        case 'GAME_OVER':
+            showResultsScreen(data.data || {});
+            break;
     }
+}
+
+// =========================================================
+// شاشة النتيجة النهائية (تظهر لجمهور شاشة العرض عند انتهاء
+// كل أسئلة الجولة، ويتحكم بها الحكم عبر نفس قناة المزامنة)
+// =========================================================
+function showResultsScreen(payload) {
+    const scoreA = (payload.scoreA !== undefined) ? payload.scoreA : gameState.scoreA;
+    const scoreB = (payload.scoreB !== undefined) ? payload.scoreB : gameState.scoreB;
+    const nameA  = payload.teamAName || gameState.teamAName;
+    const nameB  = payload.teamBName || gameState.teamBName;
+
+    document.getElementById('finalNameA').textContent = nameA;
+    document.getElementById('finalNameB').textContent = nameB;
+    document.getElementById('finalScoreA').textContent = scoreA;
+    document.getElementById('finalScoreB').textContent = scoreB;
+
+    const cardA = document.getElementById('finalCardA');
+    const cardB = document.getElementById('finalCardB');
+    cardA.classList.remove('is-winner');
+    cardB.classList.remove('is-winner');
+
+    const eyebrow  = document.getElementById('resultsEyebrow');
+    const winnerEl = document.getElementById('winnerNameDisplay');
+    const subLine  = document.getElementById('winnerSubLine');
+
+    if (scoreA === scoreB) {
+        eyebrow.textContent = 'انتهت المسابقة';
+        winnerEl.textContent = 'تعادل مثير!';
+        subLine.textContent = 'الفريقان أنهيا التحدي بنفس عدد النقاط';
+    } else {
+        const winnerName = scoreA > scoreB ? nameA : nameB;
+        (scoreA > scoreB ? cardA : cardB).classList.add('is-winner');
+        eyebrow.textContent = 'انتهت المسابقة';
+        winnerEl.textContent = winnerName;
+        subLine.textContent = 'بطل تحدي السيارات لهذه الجولة';
+    }
+
+    showScreen('resultsScreen');
+    spawnConfetti();
+    playVictorySound();
+}
+
+// دفعة قصاصات ورق ملونة (Confetti) بسيطة بـ CSS/JS بدون أي مكتبات خارجية
+function spawnConfetti() {
+    const field = document.getElementById('confettiField');
+    if (!field) return;
+    field.innerHTML = '';
+    const colors = ['#ff1e27', '#f59e0b', '#38bdf8', '#10b981', '#ffffff'];
+    const pieceCount = 90;
+    for (let i = 0; i < pieceCount; i++) {
+        const piece = document.createElement('div');
+        piece.className = 'confetti-piece';
+        piece.style.left = Math.random() * 100 + '%';
+        piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+        const duration = 2.8 + Math.random() * 2.2;
+        const delay = Math.random() * 1.2;
+        piece.style.animationDuration = duration + 's';
+        piece.style.animationDelay = delay + 's';
+        field.appendChild(piece);
+    }
+    // تنظيف القصاصات بعد انتهاء الحركة عشان ما تثقل الصفحة لو الشاشة ضلت مفتوحة
+    setTimeout(() => { if (field) field.innerHTML = ''; }, 6000);
+}
+
+// نغمة احتفالية صاعدة عند إعلان الفائز
+function playVictorySound() {
+    try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51]; // C Major arpeggio صاعدة
+        notes.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.11);
+            gain.gain.setValueAtTime(0, now + idx * 0.11);
+            gain.gain.linearRampToValueAtTime(0.2, now + idx * 0.11 + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.11 + 0.9);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now + idx * 0.11);
+            osc.stop(now + idx * 0.11 + 0.95);
+        });
+    } catch (e) {}
+}
+
+// العودة لشاشة البداية لبدء جولة جديدة من شاشة النتيجة
+function startNewGameFromResults() {
+    document.getElementById('confettiField').innerHTML = '';
+    showScreen('teamSetupScreen');
+}
+
+function goHomeFromResults() {
+    document.getElementById('confettiField').innerHTML = '';
+    showScreen('startScreen');
 }
 
 function syncStateToJudge() {
@@ -558,14 +659,15 @@ function loadQuestionByIndex(index, opts) {
 
     clearAllGlows();
 
-    // نصوص السؤال والشارات مع نقطتين قبل الخيارات (أو نقطة وحدة لو الخيارات ظاهرة أصلاً بعد استعادة الحالة)
-    document.getElementById('questionText').textContent = q.question + (gameState.optionsShown ? ' •' : ' ••');
+    // نص السؤال نظيف بدون أي رموز إضافية، وحالة الخيارات تُعرض في شارة منفصلة
+    document.getElementById('questionText').textContent = q.question;
     document.getElementById('currentQ').textContent = index + 1;
     document.getElementById('totalQ').textContent = gameState.deck.length;
     document.getElementById('categoryBadge').textContent = q.category || 'ميكانيكا عامة';
 
     // إخفاء الخيارات مؤقتاً (التلميح أصبح في نافذة منبثقة منفصلة hintModalOverlay)
     document.getElementById('optionsContainer').style.display = gameState.optionsShown ? 'grid' : 'none';
+    updateOptionsStatusPill();
     hideHintModal();
 
     // تعبئة نصوص الخيارات الأربعة
@@ -599,17 +701,33 @@ function revealOptionsOnScreen() {
         box.style.display = 'grid';
     }
     gameState.optionsShown = true;
-
-    // بعد ظهور الخيارات: نقطة وحدة بس بعد نص السؤال (كانت نقطتين قبل الكشف)
-    const currentQ = gameState.deck && gameState.deck[gameState.currentIndex];
-    if (currentQ) {
-        document.getElementById('questionText').textContent = currentQ.question + ' •';
-    }
+    updateOptionsStatusPill();
 
     // تشغيل صوت الكشف عن الخيارات
     playRevealOptionsSound();
 
     syncStateToJudge();
+}
+
+// تحديث شارة حالة الخيارات (بانتظار الحكم / ظاهرة الآن) والحشوة الجوية
+// الهادئة خلف السؤال أثناء الانتظار - بديل شارتَي "•" / "••" النصية القديمة
+function updateOptionsStatusPill() {
+    const pill = document.getElementById('optionsStatusPill');
+    const textEl = document.getElementById('optionsStatusText');
+    const arena = document.getElementById('questionContainer');
+    if (!pill || !textEl) return;
+
+    if (gameState.optionsShown) {
+        pill.classList.remove('is-waiting');
+        pill.classList.add('is-revealed');
+        textEl.textContent = 'الخيارات الأربعة ظاهرة أمامكم الآن';
+        if (arena) arena.classList.remove('options-pending');
+    } else {
+        pill.classList.remove('is-revealed');
+        pill.classList.add('is-waiting');
+        textEl.textContent = 'بانتظار قرار الحكم بكشف الخيارات';
+        if (arena) arena.classList.add('options-pending');
+    }
 }
 
 let hintAutoHideTimeout = null;

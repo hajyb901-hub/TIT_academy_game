@@ -324,14 +324,23 @@
         </header>
 
         <!-- منطقة عرض السؤال والتلميحات -->
-        <div class="stage-question-arena" id="questionContainer">
+        <div class="stage-question-arena options-pending" id="questionContainer">
             <div class="flash-overlay" id="flashOverlay"></div>
+
+            <!-- حشوة جوية هادئة تملأ الساحة بصرياً أثناء انتظار كشف الحكم للخيارات -->
+            <div class="waiting-ambient" aria-hidden="true"><div class="rev-line"></div></div>
 
             <div class="question-stage-card">
                 <!-- نص السؤال البارز مع التوهج المحيطي الذكي -->
                 <div class="question-dialog-box" id="questionCardBox">
                     <div class="question-border-glow-line"></div>
                     <h2 class="hero-question-text" id="questionText">جارٍ إعداد السؤال الهندسي...</h2>
+                </div>
+
+                <!-- شارة حالة الخيارات: مخفية بانتظار الحكم / ظاهرة أمام المتسابقين -->
+                <div class="options-status-pill is-waiting" id="optionsStatusPill">
+                    <span class="status-dot-trio"><span></span><span></span><span></span></span>
+                    <span id="optionsStatusText">بانتظار قرار الحكم بكشف الخيارات</span>
                 </div>
 
                 <!-- شبكة الخيارات الأربعة (تظهر عند كشف الحكم) -->
@@ -367,6 +376,55 @@
             </div>
             <div class="footer-center-brand">TiT AUTOMOTIVE ACADEMY</div>
             <div class="footer-right-category" id="footerTotalLeft">بنك أسئلة هندسي متجدد (100 سؤال)</div>
+        </footer>
+    </section>
+
+    <!-- ==================== 4. شاشة النتيجة النهائية (Results Screen) ==================== -->
+    <section id="resultsScreen" class="screen">
+        <div class="confetti-field" id="confettiField"></div>
+
+        <div class="results-stage">
+            <span class="results-eyebrow" id="resultsEyebrow">انتهت المسابقة</span>
+            <div class="trophy-badge">🏆</div>
+            <h2 class="winner-name-display" id="winnerNameDisplay">فريق المحركات</h2>
+            <p class="winner-sub-line" id="winnerSubLine">بطل تحدي السيارات لهذه الجولة</p>
+
+            <div class="final-score-row">
+                <div class="final-team-card" id="finalCardA">
+                    <span class="t-label" id="finalLabelA">فريق A</span>
+                    <span class="t-name" id="finalNameA">فريق المحركات</span>
+                    <span class="t-score" id="finalScoreA">0</span>
+                </div>
+                <div class="final-vs">–</div>
+                <div class="final-team-card" id="finalCardB">
+                    <span class="t-label" id="finalLabelB">فريق B</span>
+                    <span class="t-name" id="finalNameB">فريق التيربو</span>
+                    <span class="t-score" id="finalScoreB">0</span>
+                </div>
+            </div>
+
+            <div class="results-actions">
+                <button class="cyber-btn primary-start results-restart-btn" onclick="startNewGameFromResults()">
+                    <span class="btn-icon">↻</span>
+                    <span class="btn-text-content">
+                        <strong>لعبة جديدة</strong>
+                        <small>اختيار أسماء الفرق وعدد الأسئلة</small>
+                    </span>
+                </button>
+                <button class="cyber-btn results-restart-btn" onclick="goHomeFromResults()">
+                    <span class="btn-icon">🏠</span>
+                    <span class="btn-text-content">
+                        <strong>الصفحة الرئيسية</strong>
+                        <small>العودة لشاشة البداية</small>
+                    </span>
+                </button>
+            </div>
+        </div>
+
+        <footer class="contestant-footer-bar">
+            <div class="footer-left-status">TiT AUTOMOTIVE ACADEMY</div>
+            <div class="footer-center-brand">أكاديمية تيت لهندسة السيارات</div>
+            <div class="footer-right-category">شكراً لمشاركتكم</div>
         </footer>
     </section>
 

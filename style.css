@@ -1364,6 +1364,103 @@ html.is-fullscreen *::-webkit-scrollbar {
     margin-right: 6px;
 }
 
+/* شارة حالة الخيارات (مكان "•"/"••" النصية القديمة) - توضّح للمتسابقين
+   إن كانت الخيارات مخفية بانتظار الحكم أو أنها ظاهرة أمامهم الآن */
+.options-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: clamp(16px, 3vh, 28px);
+    padding: 8px 20px;
+    border-radius: 30px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-glass);
+    color: var(--text-muted);
+    transition: all 0.4s ease;
+}
+.options-status-pill .status-dot-trio {
+    display: inline-flex;
+    gap: 4px;
+}
+.options-status-pill .status-dot-trio span {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.35;
+    animation: statusDotPulse 1.4s ease-in-out infinite;
+}
+.options-status-pill .status-dot-trio span:nth-child(2) { animation-delay: 0.2s; }
+.options-status-pill .status-dot-trio span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes statusDotPulse {
+    0%, 100% { opacity: 0.25; transform: scale(0.85); }
+    50% { opacity: 1; transform: scale(1); }
+}
+.options-status-pill.is-waiting {
+    color: var(--text-muted);
+}
+.options-status-pill.is-revealed {
+    color: var(--matrix-green);
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.35);
+}
+.options-status-pill.is-revealed .status-dot-trio span {
+    animation: none;
+    opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+    .options-status-pill .status-dot-trio span { animation: none; opacity: 0.7; }
+}
+
+/* حشوة جوية هادئة لساحة السؤال أثناء انتظار قرار الحكم بكشف الخيارات -
+   عشان الساحة ما تحس فاضية أو معطّلة قبل الكشف */
+.waiting-ambient {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: clamp(20px, 6vh, 70px);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+.stage-question-arena.options-pending .waiting-ambient {
+    opacity: 1;
+}
+.waiting-ambient .rev-line {
+    width: min(70vw, 560px);
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 30, 39, 0.35) 50%, transparent);
+    position: relative;
+    overflow: visible;
+}
+.waiting-ambient .rev-line::before {
+    content: '';
+    position: absolute;
+    top: -1.5px;
+    right: 0;
+    width: 40px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--neon-red);
+    box-shadow: 0 0 14px var(--neon-red-glow);
+    animation: revSweep 2.8s ease-in-out infinite;
+}
+@keyframes revSweep {
+    0%   { right: 0; opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { right: calc(100% - 40px); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .waiting-ambient { display: none; }
+}
+
 /* أنيميشن تغيير اللون للسؤال من الأبيض للأحمر - سلس وخفيف على المعالج
    (تم استبدال أسلوب التدرج اللوني المقصوص على النص لأنه كان يجبر المتصفح
    على إعادة رسم قناع النص بالكامل كل فريم، وهذا هو سبب "الدروب فريم" والإجهاد البصري) */
@@ -1490,6 +1587,183 @@ html.is-fullscreen *::-webkit-scrollbar {
     font-family: var(--font-heading);
     letter-spacing: 3px;
     color: var(--text-muted);
+}
+
+/* =========================================================
+   4. شاشة النتيجة النهائية (Results Screen)
+   ========================================================= */
+#resultsScreen {
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    background: radial-gradient(circle at 50% 28%, rgba(245, 158, 11, 0.08) 0%, transparent 55%), #050811;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+}
+
+.confetti-field {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 1;
+}
+.confetti-piece {
+    position: absolute;
+    top: -30px;
+    width: 9px;
+    height: 16px;
+    opacity: 0.9;
+    animation: confettiFall linear forwards;
+    border-radius: 2px;
+}
+@keyframes confettiFall {
+    0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(105vh) rotate(540deg); opacity: 0.3; }
+}
+
+.results-stage {
+    position: relative;
+    z-index: 2;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 20px 24px;
+    gap: 6px;
+}
+
+.results-eyebrow {
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--neon-red);
+    margin-bottom: 6px;
+}
+
+.trophy-badge {
+    font-size: clamp(3.2rem, 8vw, 5rem);
+    line-height: 1;
+    margin-bottom: 10px;
+    filter: drop-shadow(0 0 30px var(--gold-glow));
+    animation: trophyPulse 2.4s ease-in-out infinite;
+}
+@keyframes trophyPulse {
+    0%, 100% { transform: scale(1) translateY(0); }
+    50%      { transform: scale(1.06) translateY(-6px); }
+}
+
+.winner-name-display {
+    font-family: var(--font-heading);
+    font-size: clamp(2rem, 5.5vw, 3.4rem);
+    font-weight: 900;
+    color: var(--gold-hint);
+    position: relative;
+    display: inline-block;
+    animation: winnerNameFloat 3.2s ease-in-out infinite;
+}
+.winner-name-display::before {
+    content: '';
+    position: absolute;
+    inset: -28px -46px;
+    background: radial-gradient(ellipse at center, rgba(245, 158, 11, 0.4) 0%, rgba(245, 158, 11, 0.12) 45%, transparent 75%);
+    filter: blur(6px);
+    z-index: -1;
+    border-radius: 50%;
+    animation: winnerHaloPulse 3.2s ease-in-out infinite;
+}
+@keyframes winnerNameFloat {
+    0%, 100% { transform: translateY(0); text-shadow: 0 0 35px var(--gold-glow); }
+    50%      { transform: translateY(-10px); text-shadow: 0 0 55px var(--gold-glow); }
+}
+@keyframes winnerHaloPulse {
+    0%, 100% { opacity: 0.55; transform: scale(0.94); }
+    50%      { opacity: 1; transform: scale(1.12); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .winner-name-display,
+    .winner-name-display::before {
+        animation: none;
+    }
+}
+
+.winner-sub-line {
+    color: var(--text-silver);
+    font-size: 1.05rem;
+    margin-bottom: 30px;
+}
+
+.final-score-row {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    margin-bottom: 40px;
+}
+
+.final-team-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-card);
+    border: 1.5px solid var(--border-glass);
+    border-radius: 16px;
+    padding: 20px 34px;
+    min-width: 170px;
+    transition: all 0.3s;
+}
+.final-team-card.is-winner {
+    border-color: var(--gold-hint);
+    box-shadow: 0 0 40px var(--gold-glow);
+    background: rgba(245, 158, 11, 0.07);
+}
+.final-team-card .t-label {
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+}
+.final-team-card .t-name {
+    font-family: var(--font-heading);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-pure);
+}
+.final-team-card .t-score {
+    font-family: var(--font-heading);
+    font-size: 2.6rem;
+    font-weight: 900;
+    color: var(--text-silver);
+}
+.final-team-card.is-winner .t-score {
+    color: var(--gold-hint);
+    text-shadow: 0 0 20px var(--gold-glow);
+}
+.final-vs {
+    font-family: var(--font-heading);
+    font-size: 1.3rem;
+    color: var(--text-muted);
+}
+
+.results-actions {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.results-restart-btn {
+    justify-content: center;
+    flex: 1 1 220px;
+    max-width: 300px;
+}
+
+@media (max-width: 640px) {
+    .final-score-row { gap: 12px; }
+    .final-team-card { padding: 16px 20px; min-width: 130px; }
+    .final-team-card .t-score { font-size: 2rem; }
 }
 
 /* =========================================================

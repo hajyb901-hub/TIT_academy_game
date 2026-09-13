@@ -902,8 +902,31 @@
                 sendSyncEvent({ type: 'NEXT_QUESTION', index: judgeState.currentIndex });
                 updateJudgeView();
             } else {
-                alert(`انتهت جميع الأسئلة!\nالنتيجة النهائية:\n${judgeState.teamAName}: ${judgeState.scoreA}\n${judgeState.teamBName}: ${judgeState.scoreB}`);
+                // نبث نهاية المسابقة لشاشة العرض/البروجكتر بدل ما تبقى واقفة
+                // بصمت على آخر سؤال - هي تتولى عرض شاشة الفائز والاحتفال بنفسها
+                sendSyncEvent({
+                    type: 'GAME_OVER',
+                    data: {
+                        scoreA: judgeState.scoreA,
+                        scoreB: judgeState.scoreB,
+                        teamAName: judgeState.teamAName,
+                        teamBName: judgeState.teamBName
+                    }
+                });
+                showJudgeMatchOverBanner();
             }
+        }
+
+        // بانر بسيط داخل لوحة الحكم نفسها يؤكد إرسال أمر إنهاء المسابقة،
+        // بديل عن alert() المتصفح الذي كان يوقف لوحة الحكم عن أي تفاعل فوري
+        function showJudgeMatchOverBanner() {
+            const winner = judgeState.scoreA === judgeState.scoreB
+                ? 'تعادل بين الفريقين'
+                : (judgeState.scoreA > judgeState.scoreB ? judgeState.teamAName : judgeState.teamBName) + ' فاز بالتحدي';
+
+            document.getElementById('jHintStatus').textContent = `🏁 انتهت جميع الأسئلة — ${winner} (${judgeState.scoreA} - ${judgeState.scoreB}). تم إرسال شاشة النتيجة لشاشة العرض.`;
+            document.getElementById('jNextBtn').disabled = true;
+            document.getElementById('jHintBtn').disabled = true;
         }
 
         function judgePrevQuestion() {
